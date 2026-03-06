@@ -1,20 +1,22 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Brain, Trash2, ArrowRight } from "lucide-react";
+import { Plus, Brain, Trash2, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function MindMapList({ onSelectMap }) {
+export default function MindMapList({ onSelectMap, user }) {
   const [newTitle, setNewTitle] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
 
+  // Only fetch maps belonging to the current user
   const { data: maps = [], isLoading } = useQuery({
-    queryKey: ["mindmaps"],
-    queryFn: () => base44.entities.MindMap.list("-created_date"),
+    queryKey: ["mindmaps", user?.email],
+    queryFn: () => base44.entities.MindMap.filter({ created_by: user.email }, "-created_date"),
+    enabled: !!user?.email,
   });
 
   const createMap = useMutation({
@@ -31,7 +33,7 @@ export default function MindMapList({ onSelectMap }) {
       return map;
     },
     onSuccess: (map) => {
-      queryClient.invalidateQueries({ queryKey: ["mindmaps"] });
+      queryClient.invalidateQueries({ queryKey: ["mindmaps", user?.email] });
       setNewTitle("");
       setShowCreate(false);
       onSelectMap(map);
@@ -40,13 +42,14 @@ export default function MindMapList({ onSelectMap }) {
 
   const deleteMap = useMutation({
     mutationFn: async (mapId) => {
+      // Guard: only delete if the map belongs to this user
+      const map = maps.find((m) => m.id === mapId);
+      if (!map || map.created_by !== user?.email) return;
       const nodes = await base44.entities.MindMapNode.filter({ map_id: mapId });
-      for (const n of nodes) {
-        await base44.entities.MindMapNode.delete(n.id);
-      }
+      await Promise.allSettled(nodes.map((n) => base44.entities.MindMapNode.delete(n.id)));
       await base44.entities.MindMap.delete(mapId);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mindmaps"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mindmaps", user?.email] }),
   });
 
   return (
