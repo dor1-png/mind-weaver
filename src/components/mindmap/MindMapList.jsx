@@ -46,7 +46,8 @@ export default function MindMapList({ onSelectMap, user }) {
     mutationFn: async (mapId) => {
       const map = maps.find((m) => m.id === mapId);
       if (!map || map.userId !== user?.id) return;
-      const nodes = await base44.entities.MindMapNode.filter({ map_id: mapId });
+      // Filter nodes by both map_id AND userId so we never touch another user's nodes
+      const nodes = await base44.entities.MindMapNode.filter({ map_id: mapId, userId: user.id });
       await Promise.allSettled(nodes.map((n) => base44.entities.MindMapNode.delete(n.id)));
       await base44.entities.MindMap.delete(mapId);
     },
