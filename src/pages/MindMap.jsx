@@ -12,6 +12,7 @@ export default function MindMap() {
   const [selectedMap, setSelectedMap] = useState(null);
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
