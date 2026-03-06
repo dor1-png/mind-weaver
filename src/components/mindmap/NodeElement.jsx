@@ -51,6 +51,7 @@ const NodeElement = memo(function NodeElement({
   const [editValue, setEditValue] = useState(node.label);
   const inputRef = useRef(null);
   const wrapperRef = useRef(null);
+  const debounceRef = useRef(null);
   const color = node.color || "slate";
 
   // Register DOM element with parent canvas for imperative drag moves
@@ -67,23 +68,38 @@ const NodeElement = memo(function NodeElement({
     }
   }, [autoEdit, isSelected]);
 
-  // Sync label when changed externally
+  // Sync label when changed externally (not while user is typing)
   useEffect(() => {
     if (!isEditing) setEditValue(node.label);
   }, [node.label, isEditing]);
 
   useEffect(() => {
     if (isEditing) {
-      setTimeout(() => inputRef.current?.focus(), 30);
+      setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 20);
     }
   }, [isEditing]);
 
-  const commitRename = () => {
+  // Cleanup debounce on unmount
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
+  const handleEditChange = useCallback((e) => {
+    const val = e.target.value;
+    setEditValue(val); // instant local update — no parent re-render
+    // Debounce: sync to parent/DB 500ms after last keystroke
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const trimmed = val.trim();
+      if (trimmed && trimmed !== node.label) onRename(node, trimmed);
+    }, 500);
+  }, [node, onRename]);
+
+  const commitRename = useCallback(() => {
+    clearTimeout(debounceRef.current); // cancel pending debounce
     const trimmed = editValue.trim();
     if (trimmed && trimmed !== node.label) onRename(node, trimmed);
     else if (!trimmed) setEditValue(node.label);
     setIsEditing(false);
-  };
+  }, [editValue, node, onRename]);
 
   const handleDoubleClick = (e) => {
     e.stopPropagation();
