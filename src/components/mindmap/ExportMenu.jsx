@@ -40,14 +40,13 @@ function triggerDownload(blob, filename) {
 }
 
 async function captureElement(el) {
-  // Dynamically import html-to-image to avoid bundling issues
-  const { toPng } = await import("html-to-image");
-  const dataUrl = await toPng(el, {
+  const canvas = await html2canvas(el, {
     backgroundColor: "#f8fafc",
-    pixelRatio: 2,
-    cacheBust: true,
+    scale: 2,
+    useCORS: true,
+    logging: false,
   });
-  return dataUrl;
+  return canvas.toDataURL("image/png");
 }
 
 export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
