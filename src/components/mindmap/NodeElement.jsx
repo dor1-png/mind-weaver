@@ -45,6 +45,7 @@ const NodeElement = memo(function NodeElement({
   onDragStart,
   onRename,
   onContextMenu,
+  onMount,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(node.label);
@@ -52,12 +53,11 @@ const NodeElement = memo(function NodeElement({
   const wrapperRef = useRef(null);
   const color = node.color || "slate";
 
-  // Expose DOM node so canvas can move it imperatively
+  // Register DOM element with parent canvas for imperative drag moves
   useEffect(() => {
-    if (wrapperRef.current) {
-      wrapperRef.current.__nodeId = node.id;
-    }
-  }, [node.id]);
+    onMount?.(node.id, wrapperRef.current);
+    return () => onMount?.(node.id, null);
+  }, [node.id, onMount]);
 
   // Auto-edit when this node is freshly created
   useEffect(() => {
