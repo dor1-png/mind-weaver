@@ -150,14 +150,14 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
   const createNode = useMutation({
     mutationFn: ({ tempId, ...data }) => base44.entities.MindMapNode.create({ ...data, created_by: user?.email }),
     onSuccess: (newNode, { tempId }) => {
-      queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+      queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
         old ? old.map((n) => n.id === tempId ? newNode : n) : [newNode]
       );
       setSelectedId(newNode.id);
       setAutoEditId(newNode.id);
     },
     onError: (_err, { tempId }) => {
-      queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+      queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
         old ? old.filter((n) => n.id !== tempId) : old
       );
     },
