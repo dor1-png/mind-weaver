@@ -110,9 +110,24 @@ export default function MindMapList({ onSelectMap, user }) {
             ))}
           </div>
         ) : maps.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
-            <p>No mind maps yet. Create your first one!</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-14"
+          >
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center mx-auto mb-5">
+              <Sparkles className="w-9 h-9 text-indigo-400" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-700 mb-2">No mind maps yet</h2>
+            <p className="text-slate-400 mb-7 text-sm">Capture your ideas and organize your thoughts visually.</p>
+            <Button
+              onClick={() => setShowCreate(true)}
+              className="h-12 px-8 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-base font-semibold shadow-md"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Start Your First Adventure
+            </Button>
+          </motion.div>
         ) : (
           <div className="space-y-3">
             {maps.map((map, i) => (
