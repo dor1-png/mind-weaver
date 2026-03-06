@@ -66,7 +66,7 @@ function autoLayout(nodes) {
   return nodes.map((n) => ({ ...n, x: pos[n.id]?.x ?? n.x, y: pos[n.id]?.y ?? n.y }));
 }
 
-export default function MindMapCanvas({ nodes, mapId }) {
+export default function MindMapCanvas({ nodes, mapId, user }) {
   const queryClient = useQueryClient();
   const canvasRef = useRef(null);
 
