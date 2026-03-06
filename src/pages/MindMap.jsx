@@ -81,9 +81,24 @@ export default function MindMap() {
         </div>
         <h1 className="text-lg font-semibold text-slate-800 truncate">{selectedMap.title}</h1>
         <span className="text-xs text-slate-400 ml-auto">{nodes.length} nodes</span>
+
+        {/* Presence avatars */}
+        <PresenceAvatars mapId={selectedMap?.id} user={user} />
+
+        {/* Share button (owner only) */}
+        {isOwner && (
+          <button
+            onClick={() => setShowShare(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-sm font-medium transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+            Share
+          </button>
+        )}
+
         <button
           onClick={handleLogout}
-          className="ml-3 p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+          className="ml-1 p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
           title="Sign out"
         >
           <LogOut className="w-4 h-4" />
