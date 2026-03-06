@@ -331,12 +331,14 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
 
   // ─── Stable node callbacks ────────────────────────────────────────────────
   const handleDragStart = useCallback((e, node) => {
+    // Only allow dragging nodes owned by this user
+    if (node.userId && node.userId !== user?.id) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left - panRef.current.x) / zoomRef.current;
     const mouseY = (e.clientY - rect.top - panRef.current.y) / zoomRef.current;
     dragOffsetRef.current = { x: mouseX - node.x, y: mouseY - node.y };
     draggingNodeRef.current = node;
-  }, []);
+  }, [user?.id]);
 
   const handleToggleCollapse = useCallback((node) => {
     updateNode.mutate({ id: node.id, data: { collapsed: !node.collapsed } });
@@ -394,7 +396,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
     setAutoEditId(null);
     const hadChildren = toDelete.length > 1;
     await Promise.allSettled(toDelete.map((id) => base44.entities.MindMapNode.delete(id)));
-    queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId, user?.email] });
+    queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId, user?.id] });
     toast(`"${node.label}" deleted${hadChildren ? ` (+${toDelete.length - 1} children)` : ""}`, {
       action: { label: "Undo", onClick: handleUndo },
     });
