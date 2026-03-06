@@ -159,6 +159,9 @@ export default function MindMapList({ onSelectMap, user }) {
           </motion.div>
         ) : (
           <div className="space-y-3">
+            {maps.length > 0 && sharedMapsList.length > 0 && (
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest px-1">My Maps</p>
+            )}
             {maps.map((map, i) => (
               <motion.div
                 key={map.id}
