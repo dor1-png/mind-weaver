@@ -148,7 +148,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
   });
 
   const createNode = useMutation({
-    mutationFn: ({ tempId, ...data }) => base44.entities.MindMapNode.create(data),
+    mutationFn: ({ tempId, ...data }) => base44.entities.MindMapNode.create({ ...data, created_by: user?.email }),
     onSuccess: (newNode, { tempId }) => {
       queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
         old ? old.map((n) => n.id === tempId ? newNode : n) : [newNode]
