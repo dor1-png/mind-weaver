@@ -12,11 +12,13 @@ export default function MindMapList({ onSelectMap, user }) {
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
 
-  // Only fetch maps belonging to the current user
+  // Fetch only this user's maps at the DB level
   const { data: maps = [], isLoading } = useQuery({
     queryKey: ["mindmaps", user?.email],
     queryFn: () => base44.entities.MindMap.filter({ created_by: user.email }, "-created_date"),
     enabled: !!user?.email,
+    // Prevent stale data from a previous user session leaking in
+    staleTime: 0,
   });
 
   const createMap = useMutation({
