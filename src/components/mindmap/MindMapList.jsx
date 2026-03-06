@@ -200,6 +200,35 @@ export default function MindMapList({ onSelectMap, user }) {
                 </div>
               </motion.div>
             ))}
+            {sharedMapsList.length > 0 && (
+              <>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest px-1 mt-4">Shared with me</p>
+                {sharedMapsList.map((map, i) => (
+                  <motion.div
+                    key={map.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <div
+                      className="group flex items-center justify-between p-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50 hover:border-indigo-200 transition-all duration-200 cursor-pointer hover:shadow-md"
+                      onClick={() => onSelectMap(map)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-200 to-violet-200 flex items-center justify-center flex-shrink-0">
+                          <Brain className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-slate-800 truncate">{map.title}</h3>
+                          <p className="text-xs text-indigo-400">Shared with you</p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                    </div>
+                  </motion.div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
