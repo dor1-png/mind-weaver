@@ -118,7 +118,13 @@ export default function MindMapCanvas({ nodes, mapId }) {
   // ─── Mutations ────────────────────────────────────────────────────────────
   const updateNode = useMutation({
     mutationFn: ({ id, data }) => base44.entities.MindMapNode.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] }),
+    onMutate: ({ id, data }) => {
+      // Optimistically apply the update to avoid any flash or refetch delay
+      queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+        old ? old.map((n) => n.id === id ? { ...n, ...data } : n) : old
+      );
+    },
+    // No invalidateQueries — optimistic update is sufficient, avoids re-render storm
   });
 
   const createNode = useMutation({
