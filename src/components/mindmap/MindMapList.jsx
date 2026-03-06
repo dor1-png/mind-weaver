@@ -22,7 +22,7 @@ export default function MindMapList({ onSelectMap, user }) {
 
   const createMap = useMutation({
     mutationFn: async (title) => {
-      const map = await base44.entities.MindMap.create({ title });
+      const map = await base44.entities.MindMap.create({ title, userId: user.id });
       await base44.entities.MindMapNode.create({
         map_id: map.id,
         label: title,
@@ -30,11 +30,12 @@ export default function MindMapList({ onSelectMap, user }) {
         x: 600,
         y: 400,
         color: "slate",
+        userId: user.id,
       });
       return map;
     },
     onSuccess: (map) => {
-      queryClient.invalidateQueries({ queryKey: ["mindmaps", user?.email] });
+      queryClient.invalidateQueries({ queryKey: ["mindmaps", user?.id] });
       setNewTitle("");
       setShowCreate(false);
       onSelectMap(map);
@@ -43,14 +44,13 @@ export default function MindMapList({ onSelectMap, user }) {
 
   const deleteMap = useMutation({
     mutationFn: async (mapId) => {
-      // Guard: only delete if the map belongs to this user
       const map = maps.find((m) => m.id === mapId);
-      if (!map || map.created_by !== user?.email) return;
+      if (!map || map.userId !== user?.id) return;
       const nodes = await base44.entities.MindMapNode.filter({ map_id: mapId });
       await Promise.allSettled(nodes.map((n) => base44.entities.MindMapNode.delete(n.id)));
       await base44.entities.MindMap.delete(mapId);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mindmaps", user?.email] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mindmaps", user?.id] }),
   });
 
   return (
