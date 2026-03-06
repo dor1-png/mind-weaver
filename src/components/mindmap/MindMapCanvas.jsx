@@ -383,6 +383,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
             onDragStart={handleDragStart}
             onRename={handleRename}
             onContextMenu={handleContextMenu}
+            onMount={registerNodeEl}
           />
         ))}
       </div>
