@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Download, Image, FileText, FileJson } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 
 function buildOPML(nodes) {
   const nodeMap = {};
