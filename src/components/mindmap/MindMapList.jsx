@@ -12,13 +12,38 @@ export default function MindMapList({ onSelectMap, user }) {
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch only this user's maps at the DB level — keyed by userId
-  const { data: maps = [], isLoading } = useQuery({
+  // Fetch own maps + maps shared with this user
+  const { data: ownMaps = [], isLoading: loadingOwn } = useQuery({
     queryKey: ["mindmaps", user?.id],
     queryFn: () => base44.entities.MindMap.filter({ userId: user.id }, "-created_date"),
     enabled: !!user?.id,
     staleTime: 0,
   });
+
+  const { data: sharedEntries = [], isLoading: loadingShared } = useQuery({
+    queryKey: ["shared-collaborators", user?.email],
+    queryFn: () => base44.entities.MindMapCollaborator.filter({ collaborator_email: user.email }),
+    enabled: !!user?.email,
+    staleTime: 0,
+  });
+
+  // Fetch the actual shared maps
+  const { data: sharedMaps = [], isLoading: loadingSharedMaps } = useQuery({
+    queryKey: ["shared-maps", sharedEntries.map((e) => e.map_id).join(",")],
+    queryFn: async () => {
+      if (sharedEntries.length === 0) return [];
+      const results = await Promise.all(
+        sharedEntries.map((e) => base44.entities.MindMap.filter({ id: e.map_id }))
+      );
+      return results.flat().filter(Boolean);
+    },
+    enabled: sharedEntries.length > 0,
+    staleTime: 0,
+  });
+
+  const isLoading = loadingOwn || loadingShared;
+  const maps = ownMaps;
+  const sharedMapsList = sharedMaps.filter((m) => m && !ownMaps.find((o) => o.id === m.id));
 
   const createMap = useMutation({
     mutationFn: async (title) => {
