@@ -139,7 +139,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
       return base44.entities.MindMapNode.update(id, data);
     },
     onMutate: ({ id, data, skipHistory }) => {
-      const current = queryClient.getQueryData(["mindmap-nodes", mapId]) || [];
+      const current = queryClient.getQueryData(["mindmap-nodes", mapId, user?.email]) || [];
       if (!skipHistory) pushHistory(current);
       queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
         old ? old.map((n) => n.id === id ? { ...n, ...data } : n) : old
