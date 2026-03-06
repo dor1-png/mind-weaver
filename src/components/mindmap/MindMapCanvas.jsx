@@ -122,15 +122,20 @@ export default function MindMapCanvas({ nodes, mapId }) {
   });
 
   const createNode = useMutation({
-    mutationFn: (data) => base44.entities.MindMapNode.create(data),
-    onSuccess: (newNode) => {
-      // Optimistically append without full refetch — refetch in background
+    mutationFn: ({ tempId, ...data }) => base44.entities.MindMapNode.create(data),
+    onSuccess: (newNode, { tempId }) => {
+      // Replace temp node with real node from server — no full refetch, no flash
       queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
-        old ? [...old, newNode] : [newNode]
+        old ? old.map((n) => n.id === tempId ? newNode : n) : [newNode]
       );
-      queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
       setSelectedId(newNode.id);
       setAutoEditId(newNode.id);
+    },
+    onError: (_err, { tempId }) => {
+      // Roll back the optimistic node on failure
+      queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+        old ? old.filter((n) => n.id !== tempId) : old
+      );
     },
   });
 
