@@ -347,15 +347,15 @@ export default function MindMapCanvas({ nodes, mapId }) {
       x: parentNode.x + 220,
       y: parentNode.y + offsetY,
     };
-    // Instantly render a placeholder node — no waiting for the server
+    // Save snapshot before adding (so undo can remove it)
+    pushHistory(nodes);
     queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
       old ? [...old, { id: tempId, ...newNodeData }] : [{ id: tempId, ...newNodeData }]
     );
     setSelectedId(tempId);
     setAutoEditId(tempId);
-    // Fire backend in background; onSuccess swaps tempId → real id
     createNode.mutate({ tempId, ...newNodeData });
-  }, [nodes, mapId, createNode, queryClient]);
+  }, [nodes, mapId, createNode, queryClient, pushHistory]);
 
   const handleSelect = useCallback((n) => {
     setSelectedId(n.id);
