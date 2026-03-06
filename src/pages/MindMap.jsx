@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Brain, LogOut } from "lucide-react";
 import { Toaster } from "sonner";
 import MindMapList from "../components/mindmap/MindMapList";
@@ -10,17 +10,30 @@ export default function MindMap() {
   const [selectedMap, setSelectedMap] = useState(null);
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     base44.auth.me()
-      .then((u) => { setUser(u); setAuthChecked(true); })
+      .then((u) => {
+        // Clear all cached queries when a new user logs in to prevent ghost data
+        queryClient.clear();
+        setUser(u);
+        setAuthChecked(true);
+      })
       .catch(() => { base44.auth.redirectToLogin(window.location.href); });
   }, []);
 
-  // Only fetch nodes belonging to current user's selected map
+  const handleLogout = () => {
+    // Clear cache before logout so next user starts fresh
+    queryClient.clear();
+    base44.auth.logout();
+  };
+
+  // Fetch nodes for the selected map — filter by map_id at the DB level
+  // We trust the map already belongs to the user (enforced in MindMapList)
   const { data: nodes = [] } = useQuery({
-    queryKey: ["mindmap-nodes", selectedMap?.id],
-    queryFn: () => base44.entities.MindMapNode.filter({ map_id: selectedMap.id, created_by: user?.email }),
+    queryKey: ["mindmap-nodes", selectedMap?.id, user?.email],
+    queryFn: () => base44.entities.MindMapNode.filter({ map_id: selectedMap.id }),
     enabled: !!selectedMap && !!user,
   });
 
