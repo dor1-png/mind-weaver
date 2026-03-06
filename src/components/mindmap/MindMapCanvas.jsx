@@ -3,8 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import NodeElement from "./NodeElement";
 import ConnectionLines from "./ConnectionLines";
-import NodeEditor from "./NodeEditor";
 import MindMapToolbar from "./MindMapToolbar";
+import ColorContextMenu from "./ColorContextMenu";
 
 const DEPTH_COLORS = ["slate", "indigo", "emerald", "amber", "rose", "violet", "sky"];
 
@@ -41,7 +41,6 @@ function getNodeDepth(nodes, nodeId) {
 function autoLayout(nodes) {
   const root = nodes.find((n) => !n.parent_id);
   if (!root) return nodes;
-
   const childrenMap = {};
   nodes.forEach((n) => {
     if (n.parent_id) {
@@ -49,44 +48,31 @@ function autoLayout(nodes) {
       childrenMap[n.parent_id].push(n.id);
     }
   });
-
   function getSubtreeSize(id) {
     const children = childrenMap[id] || [];
     if (children.length === 0) return 1;
     return children.reduce((sum, cid) => sum + getSubtreeSize(cid), 0);
   }
-
-  const H_SPACING = 220;
-  const V_SPACING = 70;
-  const CENTER_X = 600;
-  const CENTER_Y = 400;
+  const H_SPACING = 220, V_SPACING = 70, CENTER_X = 600, CENTER_Y = 400;
   const positions = {};
   positions[root.id] = { x: CENTER_X, y: CENTER_Y };
-
   function layoutChildren(parentId, startY) {
     const children = childrenMap[parentId] || [];
-    if (children.length === 0) return 0;
+    if (children.length === 0) return;
     const parentPos = positions[parentId];
     const totalSize = children.reduce((sum, cid) => sum + getSubtreeSize(cid), 0);
     const totalHeight = totalSize * V_SPACING;
     let currentY = startY - totalHeight / 2;
     children.forEach((cid) => {
-      const subtreeSize = getSubtreeSize(cid);
-      const subtreeHeight = subtreeSize * V_SPACING;
+      const subtreeHeight = getSubtreeSize(cid) * V_SPACING;
       const cy = currentY + subtreeHeight / 2;
       positions[cid] = { x: parentPos.x + H_SPACING, y: cy };
       layoutChildren(cid, cy);
       currentY += subtreeHeight;
     });
   }
-
   layoutChildren(root.id, CENTER_Y);
-
-  return nodes.map((n) => ({
-    ...n,
-    x: positions[n.id]?.x ?? n.x,
-    y: positions[n.id]?.y ?? n.y,
-  }));
+  return nodes.map((n) => ({ ...n, x: positions[n.id]?.x ?? n.x, y: positions[n.id]?.y ?? n.y }));
 }
 
 export default function MindMapCanvas({ nodes, mapId }) {
@@ -98,8 +84,9 @@ export default function MindMapCanvas({ nodes, mapId }) {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [draggingNode, setDraggingNode] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [editor, setEditor] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [autoEditId, setAutoEditId] = useState(null); // id of node that should auto-enter edit mode
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, node }
 
   const selectedNode = nodes.find((n) => n.id === selectedId) || null;
   const collapsedIds = new Set(nodes.filter((n) => n.collapsed).map((n) => n.id));
@@ -114,15 +101,16 @@ export default function MindMapCanvas({ nodes, mapId }) {
     mutationFn: (data) => base44.entities.MindMapNode.create(data),
     onSuccess: (newNode) => {
       queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
+      // Auto-select and auto-edit the new node
       setSelectedId(newNode.id);
+      setAutoEditId(newNode.id);
     },
   });
 
-  // Keyboard shortcuts
+  // TAB / DEL keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!selectedNode) return;
-      // Don't fire if user is typing in an input
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
 
       if (e.key === "Tab") {
@@ -130,8 +118,8 @@ export default function MindMapCanvas({ nodes, mapId }) {
         handleAddChild(selectedNode);
       }
 
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (!selectedNode.parent_id) return; // don't delete root
+      if (e.key === "Delete") {
+        if (!selectedNode.parent_id) return;
         e.preventDefault();
         handleDelete(selectedNode);
       }
@@ -149,6 +137,8 @@ export default function MindMapCanvas({ nodes, mapId }) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
       setSelectedId(null);
+      setAutoEditId(null);
+      setContextMenu(null);
     }
   };
 
@@ -161,10 +151,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
         const rect = canvasRef.current.getBoundingClientRect();
         const x = (e.clientX - rect.left - pan.x) / zoom;
         const y = (e.clientY - rect.top - pan.y) / zoom;
-        updateNode.mutate({
-          id: draggingNode.id,
-          data: { x: x - dragOffset.x, y: y - dragOffset.y },
-        });
+        updateNode.mutate({ id: draggingNode.id, data: { x: x - dragOffset.x, y: y - dragOffset.y } });
       }
     },
     [isPanning, panStart, draggingNode, dragOffset, pan, zoom]
@@ -212,11 +199,22 @@ export default function MindMapCanvas({ nodes, mapId }) {
   const handleAddChild = (parentNode) => {
     const depth = getNodeDepth(nodes, parentNode.id) + 1;
     const color = DEPTH_COLORS[depth % DEPTH_COLORS.length];
-    setEditor({ mode: "add", parentNode, defaultColor: color });
+    const siblings = nodes.filter((n) => n.parent_id === parentNode.id);
+    const offsetY = (siblings.length - Math.floor(siblings.length / 2)) * 70;
+    createNode.mutate({
+      map_id: mapId,
+      label: "New node",
+      color,
+      parent_id: parentNode.id,
+      x: parentNode.x + 220,
+      y: parentNode.y + offsetY,
+    });
   };
 
   const handleRename = (node, newLabel) => {
     updateNode.mutate({ id: node.id, data: { label: newLabel } });
+    // Clear autoEdit once committed
+    if (autoEditId === node.id) setAutoEditId(null);
   };
 
   const handleDelete = async (node) => {
@@ -224,36 +222,23 @@ export default function MindMapCanvas({ nodes, mapId }) {
     const toDelete = [node.id];
     function findChildren(parentId) {
       nodes.forEach((n) => {
-        if (n.parent_id === parentId) {
-          toDelete.push(n.id);
-          findChildren(n.id);
-        }
+        if (n.parent_id === parentId) { toDelete.push(n.id); findChildren(n.id); }
       });
     }
     findChildren(node.id);
-    for (const id of toDelete) {
-      await base44.entities.MindMapNode.delete(id);
-    }
+    for (const id of toDelete) await base44.entities.MindMapNode.delete(id);
     setSelectedId(null);
+    setAutoEditId(null);
     queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
   };
 
-  const handleEditorSave = (data) => {
-    if (editor.mode === "edit") {
-      updateNode.mutate({ id: editor.node.id, data });
-    } else {
-      const siblings = nodes.filter((n) => n.parent_id === editor.parentNode.id);
-      const offsetY = (siblings.length - siblings.length / 2) * 70;
-      createNode.mutate({
-        map_id: mapId,
-        label: data.label,
-        color: data.color,
-        parent_id: editor.parentNode.id,
-        x: editor.parentNode.x + 220,
-        y: editor.parentNode.y + offsetY,
-      });
-    }
-    setEditor(null);
+  const handleContextMenu = (e, node) => {
+    setContextMenu({ x: e.clientX, y: e.clientY, node });
+  };
+
+  const handleColorChange = (color) => {
+    if (!contextMenu?.node) return;
+    updateNode.mutate({ id: contextMenu.node.id, data: { color } });
   };
 
   const handleAutoLayout = async () => {
@@ -271,21 +256,13 @@ export default function MindMapCanvas({ nodes, mapId }) {
     if (nodes.length === 0) return;
     const xs = nodes.map((n) => n.x);
     const ys = nodes.map((n) => n.y);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
     const rect = canvasRef.current.getBoundingClientRect();
-    const w = maxX - minX + 400;
-    const h = maxY - minY + 300;
-    const newZoom = Math.min(rect.width / w, rect.height / h, 1.5);
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
+    const newZoom = Math.min(rect.width / (maxX - minX + 400), rect.height / (maxY - minY + 300), 1.5);
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
     setZoom(newZoom);
-    setPan({
-      x: rect.width / 2 - cx * newZoom,
-      y: rect.height / 2 - cy * newZoom,
-    });
+    setPan({ x: rect.width / 2 - cx * newZoom, y: rect.height / 2 - cy * newZoom });
   };
 
   return (
@@ -318,10 +295,12 @@ export default function MindMapCanvas({ nodes, mapId }) {
             childCount={getChildCount(nodes, node.id)}
             isRoot={!node.parent_id}
             isSelected={node.id === selectedId}
-            onSelect={(n) => setSelectedId(n.id)}
+            autoEdit={node.id === autoEditId}
+            onSelect={(n) => { setSelectedId(n.id); setAutoEditId(null); }}
             onToggleCollapse={handleToggleCollapse}
             onDragStart={handleDragStart}
             onRename={handleRename}
+            onContextMenu={handleContextMenu}
           />
         ))}
       </div>
@@ -333,12 +312,13 @@ export default function MindMapCanvas({ nodes, mapId }) {
         onAutoLayout={handleAutoLayout}
       />
 
-      {editor && (
-        <NodeEditor
-          node={editor.mode === "edit" ? editor.node : { color: editor.defaultColor }}
-          mode={editor.mode}
-          onSave={handleEditorSave}
-          onCancel={() => setEditor(null)}
+      {contextMenu && (
+        <ColorContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          currentColor={contextMenu.node.color}
+          onSelect={handleColorChange}
+          onClose={() => setContextMenu(null)}
         />
       )}
     </div>
