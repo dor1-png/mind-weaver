@@ -47,8 +47,14 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import MindMap from './pages/MindMap';
 
-export const pagesConfig = {
-	Pages: {}
+
+export const PAGES = {
+    "MindMap": MindMap,
 }
 
+export const pagesConfig = {
+    mainPage: "MindMap",
+    Pages: PAGES,
+};
