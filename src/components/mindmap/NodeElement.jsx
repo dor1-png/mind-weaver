@@ -203,7 +203,7 @@ const NodeElement = memo(function NodeElement({
       {isSelected && !isEditing && (
         <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">
           <span className="text-[10px] text-slate-400 bg-white/90 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">
-            Tab: add child · Del: delete · Right-click: color
+            Tab: add child · Backspace: delete · Right-click: color
           </span>
         </div>
       )}
