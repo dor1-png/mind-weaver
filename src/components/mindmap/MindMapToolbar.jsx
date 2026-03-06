@@ -28,7 +28,7 @@ export default function MindMapToolbar({ onZoomIn, onZoomOut, onFitView, onAutoL
           </button>
         ))}
         <div className="w-px h-6 bg-slate-200 mx-1" />
-        <ExportMenu contentRef={contentRef} nodes={nodes} mapTitle={mapTitle} />
+        <ExportMenu canvasRef={canvasRef} nodes={nodes} mapTitle={mapTitle} />
       </div>
     </div>
   );
