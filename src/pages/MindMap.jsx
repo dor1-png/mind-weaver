@@ -55,7 +55,7 @@ export default function MindMap() {
 
       {/* Canvas */}
       <div className="flex-1 relative">
-        <MindMapCanvas nodes={nodes} mapId={selectedMap.id} />
+        <MindMapCanvas nodes={nodes} mapId={selectedMap.id} user={user} />
       </div>
       <Toaster position="bottom-center" />
     </div>
