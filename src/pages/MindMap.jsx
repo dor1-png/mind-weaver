@@ -32,14 +32,27 @@ export default function MindMap() {
     base44.auth.logout();
   };
 
-  // Fetch nodes for the selected map — filter by map_id at the DB level
-  // We trust the map already belongs to the user (enforced in MindMapList)
+  // Fetch nodes — for owned maps filter by userId, for shared maps filter by map_id only
+  const isOwner = selectedMap?.userId === user?.id;
   const { data: nodes = [] } = useQuery({
     queryKey: ["mindmap-nodes", selectedMap?.id, user?.id],
-    queryFn: () => base44.entities.MindMapNode.filter({ map_id: selectedMap.id, userId: user.id }),
+    queryFn: () => isOwner
+      ? base44.entities.MindMapNode.filter({ map_id: selectedMap.id, userId: user.id })
+      : base44.entities.MindMapNode.filter({ map_id: selectedMap.id }),
     enabled: !!selectedMap?.id && !!user?.id,
     staleTime: 0,
   });
+
+  // Real-time node sync — subscribe to changes on MindMapNode
+  useEffect(() => {
+    if (!selectedMap?.id) return;
+    const unsub = base44.entities.MindMapNode.subscribe((event) => {
+      if (event.data?.map_id !== selectedMap.id && event.type !== "delete") return;
+      // Refetch to get fresh data; avoids complex merge logic
+      queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", selectedMap.id, user?.id] });
+    });
+    return unsub;
+  }, [selectedMap?.id, user?.id, queryClient]);
 
   if (!authChecked) {
     return (
