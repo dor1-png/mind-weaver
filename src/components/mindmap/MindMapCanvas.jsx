@@ -387,20 +387,14 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
     // Save snapshot before deleting so Ctrl+Z can restore
     pushHistory(nodes);
     // Optimistic remove
-    queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+    queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
       old ? old.filter((n) => !toDelete.includes(n.id)) : old
     );
     setSelectedId(null);
     setAutoEditId(null);
     const hadChildren = toDelete.length > 1;
-    // Guard: only delete nodes owned by this user
-    const safeToDelete = toDelete.filter((id) => {
-      const allNodes = queryClient.getQueryData(["mindmap-nodes", mapId]) || [];
-      const n = allNodes.find((x) => x.id === id);
-      return !n || !n.created_by || n.created_by === user?.email;
-    });
-    await Promise.allSettled(safeToDelete.map((id) => base44.entities.MindMapNode.delete(id)));
-    queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
+    await Promise.allSettled(toDelete.map((id) => base44.entities.MindMapNode.delete(id)));
+    queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId, user?.email] });
     toast(`"${node.label}" deleted${hadChildren ? ` (+${toDelete.length - 1} children)` : ""}`, {
       action: { label: "Undo", onClick: handleUndo },
     });
