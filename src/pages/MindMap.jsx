@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Brain } from "lucide-react";
+import { ArrowLeft, Brain, LogOut } from "lucide-react";
 import { Toaster } from "sonner";
 import MindMapList from "../components/mindmap/MindMapList";
 import MindMapCanvas from "../components/mindmap/MindMapCanvas";
