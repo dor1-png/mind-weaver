@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, memo } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,52 +32,56 @@ const selectedRing = {
   slate:   "ring-slate-300",
 };
 
-export default function NodeElement({
+// Use a wrapper div with a ref so the canvas can imperatively move it during drag
+// without triggering any React re-render.
+const NodeElement = memo(function NodeElement({
   node,
   childCount,
   isRoot,
   isSelected,
-  autoEdit,       // when true, node mounts already in editing mode
+  autoEdit,
   onSelect,
   onToggleCollapse,
   onDragStart,
   onRename,
-  onContextMenu,  // (e, node) => void — for right-click color picker
+  onContextMenu,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(node.label);
   const inputRef = useRef(null);
+  const wrapperRef = useRef(null);
   const color = node.color || "slate";
 
-  // Enter edit mode automatically when autoEdit becomes true
+  // Expose DOM node so canvas can move it imperatively
+  useEffect(() => {
+    if (wrapperRef.current) {
+      wrapperRef.current.__nodeId = node.id;
+    }
+  }, [node.id]);
+
+  // Auto-edit when this node is freshly created
   useEffect(() => {
     if (autoEdit && isSelected) {
-      setEditValue(""); // start empty so user types a fresh name
+      setEditValue("");
       setIsEditing(true);
     }
   }, [autoEdit, isSelected]);
 
-  // Sync label if node label changes externally (e.g. color update)
+  // Sync label when changed externally
   useEffect(() => {
     if (!isEditing) setEditValue(node.label);
   }, [node.label, isEditing]);
 
   useEffect(() => {
     if (isEditing) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 30);
+      setTimeout(() => inputRef.current?.focus(), 30);
     }
   }, [isEditing]);
 
   const commitRename = () => {
     const trimmed = editValue.trim();
-    if (trimmed && trimmed !== node.label) {
-      onRename(node, trimmed);
-    } else if (!trimmed) {
-      // keep original if empty
-      setEditValue(node.label);
-    }
+    if (trimmed && trimmed !== node.label) onRename(node, trimmed);
+    else if (!trimmed) setEditValue(node.label);
     setIsEditing(false);
   };
 
@@ -108,17 +112,19 @@ export default function NodeElement({
 
   return (
     <div
+      ref={wrapperRef}
       className="absolute"
       style={{
         left: node.x,
         top: node.y,
         transform: "translate(-50%, -50%)",
         zIndex: isSelected ? 50 : 10,
+        willChange: "transform",
       }}
     >
       <div
         className={cn(
-          "relative rounded-2xl border-2 px-5 py-3 transition-all duration-150",
+          "relative rounded-2xl border-2 px-5 py-3 transition-colors duration-150",
           "hover:shadow-lg",
           colorSchemes[color] || colorSchemes.slate,
           isRoot && "px-7 py-4",
@@ -178,7 +184,6 @@ export default function NodeElement({
         </div>
       </div>
 
-      {/* Hint bar */}
       {isSelected && !isEditing && (
         <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">
           <span className="text-[10px] text-slate-400 bg-white/90 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">
@@ -188,4 +193,6 @@ export default function NodeElement({
       )}
     </div>
   );
-}
+});
+
+export default NodeElement;

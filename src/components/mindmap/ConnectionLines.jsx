@@ -1,21 +1,20 @@
-import React from "react";
+import React, { memo } from "react";
 
 const lineColors = {
-  indigo: "#818cf8",
+  indigo:  "#818cf8",
   emerald: "#34d399",
-  amber: "#fbbf24",
-  rose: "#fb7185",
-  violet: "#a78bfa",
-  sky: "#38bdf8",
-  slate: "#94a3b8",
+  amber:   "#fbbf24",
+  rose:    "#fb7185",
+  violet:  "#a78bfa",
+  sky:     "#38bdf8",
+  slate:   "#94a3b8",
 };
 
-export default function ConnectionLines({ nodes, collapsedIds }) {
-  const lines = [];
-
+const ConnectionLines = memo(function ConnectionLines({ nodes, collapsedIds }) {
   const nodeMap = {};
   nodes.forEach((n) => (nodeMap[n.id] = n));
 
+  const lines = [];
   nodes.forEach((node) => {
     if (!node.parent_id) return;
     if (collapsedIds.has(node.parent_id)) return;
@@ -23,19 +22,14 @@ export default function ConnectionLines({ nodes, collapsedIds }) {
     if (!parent) return;
 
     const color = lineColors[node.color] || lineColors.slate;
-
     const dx = node.x - parent.x;
-    const dy = node.y - parent.y;
-
     const cx1 = parent.x + dx * 0.4;
-    const cy1 = parent.y;
     const cx2 = parent.x + dx * 0.6;
-    const cy2 = node.y;
 
     lines.push(
       <path
         key={`${parent.id}-${node.id}`}
-        d={`M ${parent.x} ${parent.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${node.x} ${node.y}`}
+        d={`M ${parent.x} ${parent.y} C ${cx1} ${parent.y}, ${cx2} ${node.y}, ${node.x} ${node.y}`}
         stroke={color}
         strokeWidth={2}
         fill="none"
@@ -50,4 +44,6 @@ export default function ConnectionLines({ nodes, collapsedIds }) {
       {lines}
     </svg>
   );
-}
+});
+
+export default ConnectionLines;
