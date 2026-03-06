@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Download, Image, FileText, FileJson } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { jsPDF } from "jspdf";
-import { toPng, toJpeg } from "html-to-image";
+import html2canvas from "html2canvas";
 
 function buildOPML(nodes) {
   const nodeMap = {};
@@ -39,13 +39,6 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function captureElement(el) {
-  return await toPng(el, {
-    backgroundColor: "#f8fafc",
-    pixelRatio: 2,
-    cacheBust: true,
-  });
-}
 
 export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
   const [open, setOpen] = useState(false);
@@ -67,11 +60,14 @@ export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
     setOpen(false);
     setExporting("png");
     try {
-      const dataUrl = await captureElement(canvasRef.current);
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      triggerDownload(blob, `${title}.png`);
-    } finally {
+      const canvas = await html2canvas(canvasRef.current, {
+        backgroundColor: "#f8fafc",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      canvas.toBlob((blob) => { triggerDownload(blob, `${title}.png`); setExporting(null); }, "image/png");
+    } catch {
       setExporting(null);
     }
   };
@@ -81,16 +77,14 @@ export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
     setOpen(false);
     setExporting("jpg");
     try {
-      const dataUrl = await toJpeg(canvasRef.current, {
-        backgroundColor: "#f8fafc",
-        pixelRatio: 2,
-        quality: 0.92,
-        cacheBust: true,
+      const canvas = await html2canvas(canvasRef.current, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        logging: false,
       });
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      triggerDownload(blob, `${title}.jpg`);
-    } finally {
+      canvas.toBlob((blob) => { triggerDownload(blob, `${title}.jpg`); setExporting(null); }, "image/jpeg", 0.92);
+    } catch {
       setExporting(null);
     }
   };
@@ -100,12 +94,15 @@ export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
     setOpen(false);
     setExporting("pdf");
     try {
-      const dataUrl = await captureElement(canvasRef.current);
-      const img = new window.Image();
-      img.src = dataUrl;
-      await new Promise((res) => { img.onload = res; });
-      const w = img.naturalWidth / 2;
-      const h = img.naturalHeight / 2;
+      const canvas = await html2canvas(canvasRef.current, {
+        backgroundColor: "#f8fafc",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const dataUrl = canvas.toDataURL("image/png");
+      const w = canvas.width / 2;
+      const h = canvas.height / 2;
       const pdf = new jsPDF({ orientation: w > h ? "landscape" : "portrait", unit: "px", format: [w, h] });
       pdf.addImage(dataUrl, "PNG", 0, 0, w, h);
       pdf.save(`${title}.pdf`);
