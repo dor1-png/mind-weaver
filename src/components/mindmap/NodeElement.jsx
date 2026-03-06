@@ -3,33 +3,33 @@ import { ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const colorSchemes = {
-  indigo: "bg-indigo-50 border-indigo-200 text-indigo-900",
+  indigo:  "bg-indigo-50 border-indigo-200 text-indigo-900",
   emerald: "bg-emerald-50 border-emerald-200 text-emerald-900",
-  amber: "bg-amber-50 border-amber-200 text-amber-900",
-  rose: "bg-rose-50 border-rose-200 text-rose-900",
-  violet: "bg-violet-50 border-violet-200 text-violet-900",
-  sky: "bg-sky-50 border-sky-200 text-sky-900",
-  slate: "bg-slate-800 border-slate-600 text-white",
+  amber:   "bg-amber-50 border-amber-200 text-amber-900",
+  rose:    "bg-rose-50 border-rose-200 text-rose-900",
+  violet:  "bg-violet-50 border-violet-200 text-violet-900",
+  sky:     "bg-sky-50 border-sky-200 text-sky-900",
+  slate:   "bg-slate-800 border-slate-600 text-white",
 };
 
 const dotColors = {
-  indigo: "bg-indigo-400",
+  indigo:  "bg-indigo-400",
   emerald: "bg-emerald-400",
-  amber: "bg-amber-400",
-  rose: "bg-rose-400",
-  violet: "bg-violet-400",
-  sky: "bg-sky-400",
-  slate: "bg-white",
+  amber:   "bg-amber-400",
+  rose:    "bg-rose-400",
+  violet:  "bg-violet-400",
+  sky:     "bg-sky-400",
+  slate:   "bg-white",
 };
 
 const selectedRing = {
-  indigo: "ring-indigo-400",
+  indigo:  "ring-indigo-400",
   emerald: "ring-emerald-400",
-  amber: "ring-amber-400",
-  rose: "ring-rose-400",
-  violet: "ring-violet-400",
-  sky: "ring-sky-400",
-  slate: "ring-white",
+  amber:   "ring-amber-400",
+  rose:    "ring-rose-400",
+  violet:  "ring-violet-400",
+  sky:     "ring-sky-400",
+  slate:   "ring-slate-300",
 };
 
 export default function NodeElement({
@@ -37,22 +37,36 @@ export default function NodeElement({
   childCount,
   isRoot,
   isSelected,
+  autoEdit,       // when true, node mounts already in editing mode
   onSelect,
   onToggleCollapse,
   onDragStart,
   onRename,
+  onContextMenu,  // (e, node) => void — for right-click color picker
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(node.label);
   const inputRef = useRef(null);
   const color = node.color || "slate";
 
+  // Enter edit mode automatically when autoEdit becomes true
+  useEffect(() => {
+    if (autoEdit && isSelected) {
+      setEditValue(""); // start empty so user types a fresh name
+      setIsEditing(true);
+    }
+  }, [autoEdit, isSelected]);
+
+  // Sync label if node label changes externally (e.g. color update)
+  useEffect(() => {
+    if (!isEditing) setEditValue(node.label);
+  }, [node.label, isEditing]);
+
   useEffect(() => {
     if (isEditing) {
       setTimeout(() => {
         inputRef.current?.focus();
-        inputRef.current?.select();
-      }, 50);
+      }, 30);
     }
   }, [isEditing]);
 
@@ -60,7 +74,8 @@ export default function NodeElement({
     const trimmed = editValue.trim();
     if (trimmed && trimmed !== node.label) {
       onRename(node, trimmed);
-    } else {
+    } else if (!trimmed) {
+      // keep original if empty
       setEditValue(node.label);
     }
     setIsEditing(false);
@@ -68,6 +83,7 @@ export default function NodeElement({
 
   const handleDoubleClick = (e) => {
     e.stopPropagation();
+    setEditValue(node.label);
     setIsEditing(true);
   };
 
@@ -82,6 +98,12 @@ export default function NodeElement({
     if (isEditing) return;
     e.stopPropagation();
     onSelect(node);
+  };
+
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onContextMenu(e, node);
   };
 
   return (
@@ -106,22 +128,16 @@ export default function NodeElement({
         onMouseDown={handleMouseDown}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        onContextMenu={handleContextMenu}
       >
         <div className="flex items-center gap-2">
           {childCount > 0 && (
             <button
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleCollapse(node);
-              }}
+              onClick={(e) => { e.stopPropagation(); onToggleCollapse(node); }}
               className="p-0.5 rounded-md hover:bg-black/10 transition-colors flex-shrink-0"
             >
-              {node.collapsed ? (
-                <ChevronRight className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
+              {node.collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           )}
           {childCount === 0 && !isEditing && (
@@ -135,18 +151,20 @@ export default function NodeElement({
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={commitRename}
               onKeyDown={(e) => {
-                if (e.key === "Enter") commitRename();
+                if (e.key === "Enter") { e.preventDefault(); commitRename(); }
                 if (e.key === "Escape") { setEditValue(node.label); setIsEditing(false); }
+                if (e.key === "Tab") { e.preventDefault(); commitRename(); }
                 e.stopPropagation();
               }}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
+              placeholder="Node name..."
               className={cn(
                 "bg-transparent outline-none border-b border-current min-w-[60px] max-w-[200px]",
-                "text-sm font-medium whitespace-nowrap",
+                "text-sm font-medium whitespace-nowrap placeholder:opacity-40",
                 isRoot && "text-base font-bold"
               )}
-              style={{ width: `${Math.max(editValue.length, 4)}ch` }}
+              style={{ width: `${Math.max((editValue || "").length + 2, 8)}ch` }}
             />
           ) : (
             <span className={cn("whitespace-nowrap select-none", isRoot ? "text-base font-bold" : "text-sm font-medium")}>
@@ -160,11 +178,11 @@ export default function NodeElement({
         </div>
       </div>
 
-      {/* Selected indicator hint */}
+      {/* Hint bar */}
       {isSelected && !isEditing && (
-        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex gap-2 pointer-events-none">
-          <span className="text-[10px] text-slate-400 bg-white/80 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">
-            Tab: add child · Del: delete · DblClick: rename
+        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">
+          <span className="text-[10px] text-slate-400 bg-white/90 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">
+            Tab: add child · Del: delete · Right-click: color
           </span>
         </div>
       )}
