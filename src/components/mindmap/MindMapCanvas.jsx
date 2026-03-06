@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import NodeElement from "./NodeElement";
 import ConnectionLines from "./ConnectionLines";
 import MindMapToolbar from "./MindMapToolbar";
