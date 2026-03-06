@@ -197,7 +197,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
 
     // Refresh to get real IDs for any re-created nodes
     if (toCreate.length > 0) {
-      queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
+      queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId, user?.email] });
     }
 
     toast.success("Undone");
