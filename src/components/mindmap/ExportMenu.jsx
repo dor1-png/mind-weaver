@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Download, Image, FileText, FileJson, ChevronUp } from "lucide-react";
+import { Download, Image, FileText, FileJson } from "lucide-react";
 import { cn } from "@/lib/utils";
-import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
 function buildOPML(nodes) {
@@ -16,80 +15,123 @@ function buildOPML(nodes) {
     }
   });
 
+  function escXml(s) {
+    return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
   function toOutline(n) {
     const childXml = n.children.map(toOutline).join("");
     return `<outline text="${escXml(n.label)}">${childXml}</outline>`;
-  }
-  function escXml(s) {
-    return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   const outlines = roots.map(toOutline).join("\n  ");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head/>\n  <body>\n  ${outlines}\n  </body>\n</opml>`;
 }
 
-function download(blob, filename) {
+function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function ExportMenu({ contentRef, nodes, mapTitle }) {
+async function captureElement(el) {
+  // Dynamically import html-to-image to avoid bundling issues
+  const { toPng } = await import("html-to-image");
+  const dataUrl = await toPng(el, {
+    backgroundColor: "#f8fafc",
+    pixelRatio: 2,
+    cacheBust: true,
+  });
+  return dataUrl;
+}
+
+export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(null);
-  const ref = useRef(null);
+  const menuRef = useRef(null);
+  const title = mapTitle || "mindmap";
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const captureCanvas = async () => {
-    const el = contentRef.current;
-    if (!el) return null;
-    return await html2canvas(el, { backgroundColor: "#f8fafc", scale: 2, useCORS: true, logging: false });
+  const exportPNG = async (e) => {
+    e.preventDefault();
+    setOpen(false);
+    setExporting("png");
+    try {
+      const dataUrl = await captureElement(canvasRef.current);
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      triggerDownload(blob, `${title}.png`);
+    } finally {
+      setExporting(null);
+    }
   };
 
-  const exportPNG = async () => {
-    setExporting("png"); setOpen(false);
-    const canvas = await captureCanvas();
-    canvas.toBlob((blob) => { download(blob, `${mapTitle || "mindmap"}.png`); setExporting(null); }, "image/png");
+  const exportJPG = async (e) => {
+    e.preventDefault();
+    setOpen(false);
+    setExporting("jpg");
+    try {
+      const { toJpeg } = await import("html-to-image");
+      const dataUrl = await toJpeg(canvasRef.current, {
+        backgroundColor: "#f8fafc",
+        pixelRatio: 2,
+        quality: 0.92,
+        cacheBust: true,
+      });
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      triggerDownload(blob, `${title}.jpg`);
+    } finally {
+      setExporting(null);
+    }
   };
 
-  const exportJPG = async () => {
-    setExporting("jpg"); setOpen(false);
-    const canvas = await captureCanvas();
-    canvas.toBlob((blob) => { download(blob, `${mapTitle || "mindmap"}.jpg`); setExporting(null); }, "image/jpeg", 0.92);
+  const exportPDF = async (e) => {
+    e.preventDefault();
+    setOpen(false);
+    setExporting("pdf");
+    try {
+      const dataUrl = await captureElement(canvasRef.current);
+      const img = new window.Image();
+      img.src = dataUrl;
+      await new Promise((res) => { img.onload = res; });
+      const w = img.naturalWidth / 2;
+      const h = img.naturalHeight / 2;
+      const pdf = new jsPDF({ orientation: w > h ? "landscape" : "portrait", unit: "px", format: [w, h] });
+      pdf.addImage(dataUrl, "PNG", 0, 0, w, h);
+      pdf.save(`${title}.pdf`);
+    } finally {
+      setExporting(null);
+    }
   };
 
-  const exportPDF = async () => {
-    setExporting("pdf"); setOpen(false);
-    const canvas = await captureCanvas();
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-    pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
-    pdf.save(`${mapTitle || "mindmap"}.pdf`);
-    setExporting(null);
-  };
-
-  const exportJSON = () => {
+  const exportJSON = (e) => {
+    e.preventDefault();
     setOpen(false);
     const data = nodes.map(({ id, label, parent_id, x, y, color, collapsed, map_id }) =>
       ({ id, label, parent_id, x, y, color, collapsed, map_id })
     );
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    download(blob, `${mapTitle || "mindmap"}.json`);
+    triggerDownload(blob, `${title}.json`);
   };
 
-  const exportOPML = () => {
+  const exportOPML = (e) => {
+    e.preventDefault();
     setOpen(false);
     const blob = new Blob([buildOPML(nodes)], { type: "text/xml" });
-    download(blob, `${mapTitle || "mindmap"}.opml`);
+    triggerDownload(blob, `${title}.opml`);
   };
 
   const items = [
@@ -101,9 +143,10 @@ export default function ExportMenu({ contentRef, nodes, mapTitle }) {
   ];
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={menuRef} className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
+        type="button"
+        onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }}
         title="Export"
         disabled={!!exporting}
         className={cn(
@@ -120,11 +163,12 @@ export default function ExportMenu({ contentRef, nodes, mapTitle }) {
       </button>
 
       {open && (
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-xl border border-slate-200/60 py-1.5 min-w-40 z-50">
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-xl border border-slate-200/60 py-1.5 min-w-44 z-50">
           <div className="px-3 py-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">Export as</div>
           {items.map((item) => (
             <button
               key={item.key}
+              type="button"
               onClick={item.action}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
             >
