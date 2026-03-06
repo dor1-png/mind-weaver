@@ -364,20 +364,19 @@ export default function MindMapCanvas({ nodes, mapId }) {
       >
         <ConnectionLines nodes={visibleNodes} collapsedIds={collapsedIds} />
         {visibleNodes.map((node) => (
-          <div key={node.id} data-nodeid={node.id} className="contents">
-            <NodeElement
-              node={node}
-              childCount={childCountMap[node.id] || 0}
-              isRoot={!node.parent_id}
-              isSelected={node.id === selectedId}
-              autoEdit={node.id === autoEditId}
-              onSelect={handleSelect}
-              onToggleCollapse={handleToggleCollapse}
-              onDragStart={handleDragStart}
-              onRename={handleRename}
-              onContextMenu={handleContextMenu}
-            />
-          </div>
+          <NodeElement
+            key={node.id}
+            node={node}
+            childCount={childCountMap[node.id] || 0}
+            isRoot={!node.parent_id}
+            isSelected={node.id === selectedId}
+            autoEdit={node.id === autoEditId}
+            onSelect={handleSelect}
+            onToggleCollapse={handleToggleCollapse}
+            onDragStart={handleDragStart}
+            onRename={handleRename}
+            onContextMenu={handleContextMenu}
+          />
         ))}
       </div>
 
