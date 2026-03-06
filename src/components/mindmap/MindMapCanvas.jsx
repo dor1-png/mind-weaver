@@ -387,7 +387,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
     // Save snapshot before deleting so Ctrl+Z can restore
     pushHistory(nodes);
     // Optimistic remove
-    queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
+    queryClient.setQueryData(["mindmap-nodes", mapId, user?.id], (old) =>
       old ? old.filter((n) => !toDelete.includes(n.id)) : old
     );
     setSelectedId(null);
