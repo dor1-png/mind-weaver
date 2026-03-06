@@ -388,7 +388,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
     setSelectedId(null);
     setAutoEditId(null);
     const hadChildren = toDelete.length > 1;
-    for (const id of toDelete) await base44.entities.MindMapNode.delete(id);
+    await Promise.allSettled(toDelete.map((id) => base44.entities.MindMapNode.delete(id)));
     queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
     toast(`"${node.label}" deleted${hadChildren ? ` (+${toDelete.length - 1} children)` : ""}`, {
       action: { label: "Undo", onClick: handleUndo },
