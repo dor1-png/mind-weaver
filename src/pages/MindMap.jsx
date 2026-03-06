@@ -34,7 +34,8 @@ export default function MindMap() {
   const { data: nodes = [] } = useQuery({
     queryKey: ["mindmap-nodes", selectedMap?.id, user?.id],
     queryFn: () => base44.entities.MindMapNode.filter({ map_id: selectedMap.id, userId: user.id }),
-    enabled: !!selectedMap && !!user,
+    enabled: !!selectedMap?.id && !!user?.id,
+    staleTime: 0,
   });
 
   if (!authChecked) {
