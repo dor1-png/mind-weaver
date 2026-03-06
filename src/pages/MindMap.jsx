@@ -107,9 +107,13 @@ export default function MindMap() {
 
       {/* Canvas */}
       <div className="flex-1 relative">
-        <MindMapCanvas nodes={nodes} mapId={selectedMap.id} user={user} />
+        <MindMapCanvas nodes={nodes} mapId={selectedMap.id} user={user} isOwner={isOwner} />
       </div>
       <Toaster position="bottom-center" />
+
+      {showShare && (
+        <ShareModal map={selectedMap} user={user} onClose={() => setShowShare(false)} />
+      )}
     </div>
   );
 }
