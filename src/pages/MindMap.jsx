@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Brain, LogOut } from "lucide-react";
+import { ArrowLeft, Brain, LogOut, Share2 } from "lucide-react";
 import { Toaster } from "sonner";
 import MindMapList from "../components/mindmap/MindMapList";
 import MindMapCanvas from "../components/mindmap/MindMapCanvas";
+import ShareModal from "../components/mindmap/ShareModal";
+import PresenceAvatars from "../components/mindmap/PresenceAvatars";
 
 export default function MindMap() {
   const [selectedMap, setSelectedMap] = useState(null);
@@ -76,7 +78,7 @@ export default function MindMap() {
 
       {/* Canvas */}
       <div className="flex-1 relative">
-        <MindMapCanvas nodes={nodes} mapId={selectedMap.id} user={user} mapTitle={selectedMap.title} />
+        <MindMapCanvas nodes={nodes} mapId={selectedMap.id} user={user} />
       </div>
       <Toaster position="bottom-center" />
     </div>
