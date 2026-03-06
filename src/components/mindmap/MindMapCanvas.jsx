@@ -147,6 +147,18 @@ export default function MindMapCanvas({ nodes, mapId, user, isOwner = true }) {
     },
   });
 
+  // Real-time sync: invalidate when another user changes a node in this map
+  useEffect(() => {
+    const unsub = base44.entities.MindMapNode.subscribe((event) => {
+      // Skip events from our own mutations (optimistic updates handle those)
+      if (event.data?.userId === user?.id) return;
+      if (event.data?.map_id === mapId || event.type === "delete") {
+        queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId, user?.id] });
+      }
+    });
+    return unsub;
+  }, [mapId, user?.id, queryClient]);
+
   const createNode = useMutation({
     mutationFn: ({ tempId, ...data }) => {
       console.log('Saving node with User ID:', user?.id);
