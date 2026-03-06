@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import NodeElement from "./NodeElement";
@@ -12,10 +12,7 @@ function getVisibleNodes(nodes, collapsedIds) {
   const hiddenIds = new Set();
   function hideChildren(parentId) {
     nodes.forEach((n) => {
-      if (n.parent_id === parentId) {
-        hiddenIds.add(n.id);
-        hideChildren(n.id);
-      }
+      if (n.parent_id === parentId) { hiddenIds.add(n.id); hideChildren(n.id); }
     });
   }
   collapsedIds.forEach((id) => hideChildren(id));
@@ -31,10 +28,7 @@ function getNodeDepth(nodes, nodeId) {
   nodes.forEach((n) => (nodeMap[n.id] = n));
   let depth = 0;
   let current = nodeMap[nodeId];
-  while (current?.parent_id) {
-    depth++;
-    current = nodeMap[current.parent_id];
-  }
+  while (current?.parent_id) { depth++; current = nodeMap[current.parent_id]; }
   return depth;
 }
 
@@ -49,49 +43,72 @@ function autoLayout(nodes) {
     }
   });
   function getSubtreeSize(id) {
-    const children = childrenMap[id] || [];
-    if (children.length === 0) return 1;
-    return children.reduce((sum, cid) => sum + getSubtreeSize(cid), 0);
+    const ch = childrenMap[id] || [];
+    return ch.length === 0 ? 1 : ch.reduce((s, c) => s + getSubtreeSize(c), 0);
   }
-  const H_SPACING = 220, V_SPACING = 70, CENTER_X = 600, CENTER_Y = 400;
-  const positions = {};
-  positions[root.id] = { x: CENTER_X, y: CENTER_Y };
-  function layoutChildren(parentId, startY) {
-    const children = childrenMap[parentId] || [];
-    if (children.length === 0) return;
-    const parentPos = positions[parentId];
-    const totalSize = children.reduce((sum, cid) => sum + getSubtreeSize(cid), 0);
-    const totalHeight = totalSize * V_SPACING;
-    let currentY = startY - totalHeight / 2;
-    children.forEach((cid) => {
-      const subtreeHeight = getSubtreeSize(cid) * V_SPACING;
-      const cy = currentY + subtreeHeight / 2;
-      positions[cid] = { x: parentPos.x + H_SPACING, y: cy };
-      layoutChildren(cid, cy);
-      currentY += subtreeHeight;
+  const H = 220, V = 70, CX = 600, CY = 400;
+  const pos = { [root.id]: { x: CX, y: CY } };
+  function layout(pid, startY) {
+    const ch = childrenMap[pid] || [];
+    if (!ch.length) return;
+    const totalH = ch.reduce((s, c) => s + getSubtreeSize(c), 0) * V;
+    let curY = startY - totalH / 2;
+    ch.forEach((cid) => {
+      const h = getSubtreeSize(cid) * V;
+      const cy = curY + h / 2;
+      pos[cid] = { x: pos[pid].x + H, y: cy };
+      layout(cid, cy);
+      curY += h;
     });
   }
-  layoutChildren(root.id, CENTER_Y);
-  return nodes.map((n) => ({ ...n, x: positions[n.id]?.x ?? n.x, y: positions[n.id]?.y ?? n.y }));
+  layout(root.id, CY);
+  return nodes.map((n) => ({ ...n, x: pos[n.id]?.x ?? n.x, y: pos[n.id]?.y ?? n.y }));
 }
 
 export default function MindMapCanvas({ nodes, mapId }) {
   const queryClient = useQueryClient();
   const canvasRef = useRef(null);
+
+  // Pan/zoom stored in refs for imperative use during mouse move
+  const panRef = useRef({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+
+  // React state for pan/zoom — only updated on mouseUp / wheel end to trigger re-render
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [draggingNode, setDraggingNode] = useState(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+
+  // Drag state — all in refs, no React state, so dragging = zero re-renders
+  const draggingNodeRef = useRef(null);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const dragPendingRAF = useRef(null);
+  // Live positions during drag (id -> {x,y}) — updated imperatively
+  const livePositions = useRef({});
+
   const [selectedId, setSelectedId] = useState(null);
-  const [autoEditId, setAutoEditId] = useState(null); // id of node that should auto-enter edit mode
-  const [contextMenu, setContextMenu] = useState(null); // { x, y, node }
+  const [autoEditId, setAutoEditId] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
 
-  const selectedNode = nodes.find((n) => n.id === selectedId) || null;
-  const collapsedIds = new Set(nodes.filter((n) => n.collapsed).map((n) => n.id));
-  const visibleNodes = getVisibleNodes(nodes, collapsedIds);
+  // Build derived data with useMemo to avoid recalculating every render
+  const collapsedIds = useMemo(
+    () => new Set(nodes.filter((n) => n.collapsed).map((n) => n.id)),
+    [nodes]
+  );
+  const visibleNodes = useMemo(() => getVisibleNodes(nodes, collapsedIds), [nodes, collapsedIds]);
+  const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) || null, [nodes, selectedId]);
 
+  // Child counts map — stable reference
+  const childCountMap = useMemo(() => {
+    const map = {};
+    nodes.forEach((n) => {
+      if (n.parent_id) map[n.parent_id] = (map[n.parent_id] || 0) + 1;
+    });
+    return map;
+  }, [nodes]);
+
+  // ─── Mutations ────────────────────────────────────────────────────────────
   const updateNode = useMutation({
     mutationFn: ({ id, data }) => base44.entities.MindMapNode.update(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] }),
@@ -100,67 +117,108 @@ export default function MindMapCanvas({ nodes, mapId }) {
   const createNode = useMutation({
     mutationFn: (data) => base44.entities.MindMapNode.create(data),
     onSuccess: (newNode) => {
+      // Optimistically append without full refetch — refetch in background
+      queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+        old ? [...old, newNode] : [newNode]
+      );
       queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
-      // Auto-select and auto-edit the new node
       setSelectedId(newNode.id);
       setAutoEditId(newNode.id);
     },
   });
 
-  // TAB / DEL keyboard shortcuts
+  // ─── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!selectedNode) return;
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-
-      if (e.key === "Tab") {
-        e.preventDefault();
-        handleAddChild(selectedNode);
-      }
-
-      if (e.key === "Delete") {
-        if (!selectedNode.parent_id) return;
-        e.preventDefault();
-        handleDelete(selectedNode);
-      }
+      if (e.key === "Tab") { e.preventDefault(); handleAddChild(selectedNode); }
+      if (e.key === "Delete") { if (!selectedNode.parent_id) return; e.preventDefault(); handleDelete(selectedNode); }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedNode, nodes]);
 
+  // ─── Mouse events ─────────────────────────────────────────────────────────
   const handleCanvasMouseDown = (e) => {
     if (
       e.target === canvasRef.current ||
       e.target.tagName === "svg" ||
       e.target.tagName === "path"
     ) {
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      isPanningRef.current = true;
+      panStartRef.current = { x: e.clientX - panRef.current.x, y: e.clientY - panRef.current.y };
       setSelectedId(null);
       setAutoEditId(null);
       setContextMenu(null);
     }
   };
 
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (isPanning) {
-        setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
-      }
-      if (draggingNode) {
+  // Move the canvas wrapper imperatively during pan
+  const contentRef = useRef(null);
+
+  const applyTransform = useCallback((px, py, z) => {
+    if (contentRef.current) {
+      contentRef.current.style.transform = `translate(${px}px, ${py}px) scale(${z})`;
+    }
+    if (canvasRef.current) {
+      canvasRef.current.style.backgroundSize = `${20 * z}px ${20 * z}px`;
+      canvasRef.current.style.backgroundPosition = `${px}px ${py}px`;
+    }
+  }, []);
+
+  const handleMouseMove = useCallback((e) => {
+    if (isPanningRef.current) {
+      const px = e.clientX - panStartRef.current.x;
+      const py = e.clientY - panStartRef.current.y;
+      panRef.current = { x: px, y: py };
+      applyTransform(px, py, zoomRef.current);
+      return;
+    }
+
+    if (draggingNodeRef.current) {
+      if (dragPendingRAF.current) return; // skip if previous frame not done
+      dragPendingRAF.current = requestAnimationFrame(() => {
+        dragPendingRAF.current = null;
+        const dn = draggingNodeRef.current;
+        if (!dn) return;
         const rect = canvasRef.current.getBoundingClientRect();
-        const x = (e.clientX - rect.left - pan.x) / zoom;
-        const y = (e.clientY - rect.top - pan.y) / zoom;
-        updateNode.mutate({ id: draggingNode.id, data: { x: x - dragOffset.x, y: y - dragOffset.y } });
-      }
-    },
-    [isPanning, panStart, draggingNode, dragOffset, pan, zoom]
-  );
+        const x = (e.clientX - rect.left - panRef.current.x) / zoomRef.current - dragOffsetRef.current.x;
+        const y = (e.clientY - rect.top - panRef.current.y) / zoomRef.current - dragOffsetRef.current.y;
+
+        // Move DOM node directly — no React state change
+        const el = canvasRef.current.querySelector(`[data-nodeid="${dn.id}"]`);
+        if (el) {
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
+        }
+        livePositions.current[dn.id] = { x, y };
+      });
+    }
+  }, [applyTransform]);
 
   const handleMouseUp = useCallback(() => {
-    setIsPanning(false);
-    setDraggingNode(null);
-  }, []);
+    if (isPanningRef.current) {
+      isPanningRef.current = false;
+      // Commit pan to React state so nodes re-render at correct offset
+      setPan({ ...panRef.current });
+    }
+
+    const dn = draggingNodeRef.current;
+    if (dn) {
+      draggingNodeRef.current = null;
+      if (dragPendingRAF.current) { cancelAnimationFrame(dragPendingRAF.current); dragPendingRAF.current = null; }
+      const pos = livePositions.current[dn.id];
+      if (pos) {
+        // Optimistic local update before server call
+        queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+          old ? old.map((n) => n.id === dn.id ? { ...n, ...pos } : n) : old
+        );
+        updateNode.mutate({ id: dn.id, data: pos });
+        delete livePositions.current[dn.id];
+      }
+    }
+  }, [mapId, queryClient, updateNode]);
 
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove);
@@ -171,75 +229,87 @@ export default function MindMapCanvas({ nodes, mapId }) {
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  const handleWheel = (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    setZoom((z) => Math.max(0.2, Math.min(3, z + delta)));
-  };
-
+  // ─── Wheel zoom ───────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
-    return () => canvas.removeEventListener("wheel", handleWheel);
+    const onWheel = (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      const newZoom = Math.max(0.2, Math.min(3, zoomRef.current + delta));
+      zoomRef.current = newZoom;
+      applyTransform(panRef.current.x, panRef.current.y, newZoom);
+      setZoom(newZoom); // sync React state for toolbar / fit
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [applyTransform]);
+
+  // ─── Stable node callbacks ────────────────────────────────────────────────
+  const handleDragStart = useCallback((e, node) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left - panRef.current.x) / zoomRef.current;
+    const mouseY = (e.clientY - rect.top - panRef.current.y) / zoomRef.current;
+    dragOffsetRef.current = { x: mouseX - node.x, y: mouseY - node.y };
+    draggingNodeRef.current = node;
   }, []);
 
-  const handleDragStart = (e, node) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left - pan.x) / zoom;
-    const mouseY = (e.clientY - rect.top - pan.y) / zoom;
-    setDragOffset({ x: mouseX - node.x, y: mouseY - node.y });
-    setDraggingNode(node);
-  };
-
-  const handleToggleCollapse = (node) => {
+  const handleToggleCollapse = useCallback((node) => {
     updateNode.mutate({ id: node.id, data: { collapsed: !node.collapsed } });
-  };
+  }, [updateNode]);
 
-  const handleAddChild = (parentNode) => {
+  const handleAddChild = useCallback((parentNode) => {
     const depth = getNodeDepth(nodes, parentNode.id) + 1;
     const color = DEPTH_COLORS[depth % DEPTH_COLORS.length];
     const siblings = nodes.filter((n) => n.parent_id === parentNode.id);
     const offsetY = (siblings.length - Math.floor(siblings.length / 2)) * 70;
-    createNode.mutate({
+    const newNodeData = {
       map_id: mapId,
       label: "New node",
       color,
       parent_id: parentNode.id,
       x: parentNode.x + 220,
       y: parentNode.y + offsetY,
-    });
-  };
+    };
+    // Defer heavy work to next frame so UI stays responsive
+    requestAnimationFrame(() => createNode.mutate(newNodeData));
+  }, [nodes, mapId, createNode]);
 
-  const handleRename = (node, newLabel) => {
+  const handleSelect = useCallback((n) => {
+    setSelectedId(n.id);
+    setAutoEditId(null);
+  }, []);
+
+  const handleRename = useCallback((node, newLabel) => {
     updateNode.mutate({ id: node.id, data: { label: newLabel } });
-    // Clear autoEdit once committed
-    if (autoEditId === node.id) setAutoEditId(null);
-  };
+    setAutoEditId((prev) => prev === node.id ? null : prev);
+  }, [updateNode]);
 
-  const handleDelete = async (node) => {
+  const handleDelete = useCallback(async (node) => {
     if (!node.parent_id) return;
     const toDelete = [node.id];
-    function findChildren(parentId) {
-      nodes.forEach((n) => {
-        if (n.parent_id === parentId) { toDelete.push(n.id); findChildren(n.id); }
-      });
+    function findChildren(pid) {
+      nodes.forEach((n) => { if (n.parent_id === pid) { toDelete.push(n.id); findChildren(n.id); } });
     }
     findChildren(node.id);
-    for (const id of toDelete) await base44.entities.MindMapNode.delete(id);
+    // Optimistic remove
+    queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+      old ? old.filter((n) => !toDelete.includes(n.id)) : old
+    );
     setSelectedId(null);
     setAutoEditId(null);
+    for (const id of toDelete) await base44.entities.MindMapNode.delete(id);
     queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
-  };
+  }, [nodes, mapId, queryClient]);
 
-  const handleContextMenu = (e, node) => {
+  const handleContextMenu = useCallback((e, node) => {
     setContextMenu({ x: e.clientX, y: e.clientY, node });
-  };
+  }, []);
 
-  const handleColorChange = (color) => {
+  const handleColorChange = useCallback((color) => {
     if (!contextMenu?.node) return;
     updateNode.mutate({ id: contextMenu.node.id, data: { color } });
-  };
+  }, [contextMenu, updateNode]);
 
   const handleAutoLayout = async () => {
     const laid = autoLayout(nodes);
@@ -254,15 +324,19 @@ export default function MindMapCanvas({ nodes, mapId }) {
 
   const handleFitView = () => {
     if (nodes.length === 0) return;
-    const xs = nodes.map((n) => n.x);
-    const ys = nodes.map((n) => n.y);
+    const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
     const rect = canvasRef.current.getBoundingClientRect();
     const newZoom = Math.min(rect.width / (maxX - minX + 400), rect.height / (maxY - minY + 300), 1.5);
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const px = rect.width / 2 - cx * newZoom;
+    const py = rect.height / 2 - cy * newZoom;
+    panRef.current = { x: px, y: py };
+    zoomRef.current = newZoom;
+    applyTransform(px, py, newZoom);
+    setPan({ x: px, y: py });
     setZoom(newZoom);
-    setPan({ x: rect.width / 2 - cx * newZoom, y: rect.height / 2 - cy * newZoom });
   };
 
   return (
@@ -277,6 +351,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
       }}
     >
       <div
+        ref={contentRef}
         style={{
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           transformOrigin: "0 0",
@@ -289,25 +364,26 @@ export default function MindMapCanvas({ nodes, mapId }) {
       >
         <ConnectionLines nodes={visibleNodes} collapsedIds={collapsedIds} />
         {visibleNodes.map((node) => (
-          <NodeElement
-            key={node.id}
-            node={node}
-            childCount={getChildCount(nodes, node.id)}
-            isRoot={!node.parent_id}
-            isSelected={node.id === selectedId}
-            autoEdit={node.id === autoEditId}
-            onSelect={(n) => { setSelectedId(n.id); setAutoEditId(null); }}
-            onToggleCollapse={handleToggleCollapse}
-            onDragStart={handleDragStart}
-            onRename={handleRename}
-            onContextMenu={handleContextMenu}
-          />
+          <div key={node.id} data-nodeid={node.id} className="contents">
+            <NodeElement
+              node={node}
+              childCount={childCountMap[node.id] || 0}
+              isRoot={!node.parent_id}
+              isSelected={node.id === selectedId}
+              autoEdit={node.id === autoEditId}
+              onSelect={handleSelect}
+              onToggleCollapse={handleToggleCollapse}
+              onDragStart={handleDragStart}
+              onRename={handleRename}
+              onContextMenu={handleContextMenu}
+            />
+          </div>
         ))}
       </div>
 
       <MindMapToolbar
-        onZoomIn={() => setZoom((z) => Math.min(3, z + 0.15))}
-        onZoomOut={() => setZoom((z) => Math.max(0.2, z - 0.15))}
+        onZoomIn={() => { const z = Math.min(3, zoomRef.current + 0.15); zoomRef.current = z; applyTransform(panRef.current.x, panRef.current.y, z); setZoom(z); }}
+        onZoomOut={() => { const z = Math.max(0.2, zoomRef.current - 0.15); zoomRef.current = z; applyTransform(panRef.current.x, panRef.current.y, z); setZoom(z); }}
         onFitView={handleFitView}
         onAutoLayout={handleAutoLayout}
       />
