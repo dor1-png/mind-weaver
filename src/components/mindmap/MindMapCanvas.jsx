@@ -417,7 +417,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
         await base44.entities.MindMapNode.update(n.id, { x: n.x, y: n.y });
       }
     }
-    queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
+    queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId, user?.email] });
   };
 
   const handleFitView = () => {
