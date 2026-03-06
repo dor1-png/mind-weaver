@@ -51,6 +51,13 @@ export default function MindMap() {
         </div>
         <h1 className="text-lg font-semibold text-slate-800 truncate">{selectedMap.title}</h1>
         <span className="text-xs text-slate-400 ml-auto">{nodes.length} nodes</span>
+        <button
+          onClick={() => base44.auth.logout()}
+          className="ml-3 p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+          title="Sign out"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Canvas */}
