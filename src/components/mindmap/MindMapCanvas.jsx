@@ -10,7 +10,6 @@ const DEPTH_COLORS = ["slate", "indigo", "emerald", "amber", "rose", "violet", "
 
 function getVisibleNodes(nodes, collapsedIds) {
   const hiddenIds = new Set();
-
   function hideChildren(parentId) {
     nodes.forEach((n) => {
       if (n.parent_id === parentId) {
@@ -19,7 +18,6 @@ function getVisibleNodes(nodes, collapsedIds) {
       }
     });
   }
-
   collapsedIds.forEach((id) => hideChildren(id));
   return nodes.filter((n) => !hiddenIds.has(n.id));
 }
@@ -41,9 +39,6 @@ function getNodeDepth(nodes, nodeId) {
 }
 
 function autoLayout(nodes) {
-  const nodeMap = {};
-  nodes.forEach((n) => (nodeMap[n.id] = { ...n }));
-
   const root = nodes.find((n) => !n.parent_id);
   if (!root) return nodes;
 
@@ -65,35 +60,24 @@ function autoLayout(nodes) {
   const V_SPACING = 70;
   const CENTER_X = 600;
   const CENTER_Y = 400;
-
   const positions = {};
   positions[root.id] = { x: CENTER_X, y: CENTER_Y };
 
   function layoutChildren(parentId, startY) {
     const children = childrenMap[parentId] || [];
     if (children.length === 0) return 0;
-
     const parentPos = positions[parentId];
     const totalSize = children.reduce((sum, cid) => sum + getSubtreeSize(cid), 0);
     const totalHeight = totalSize * V_SPACING;
-
     let currentY = startY - totalHeight / 2;
-
     children.forEach((cid) => {
       const subtreeSize = getSubtreeSize(cid);
       const subtreeHeight = subtreeSize * V_SPACING;
       const cy = currentY + subtreeHeight / 2;
-
-      positions[cid] = {
-        x: parentPos.x + H_SPACING,
-        y: cy,
-      };
-
+      positions[cid] = { x: parentPos.x + H_SPACING, y: cy };
       layoutChildren(cid, cy);
       currentY += subtreeHeight;
     });
-
-    return totalHeight;
   }
 
   layoutChildren(root.id, CENTER_Y);
@@ -115,7 +99,9 @@ export default function MindMapCanvas({ nodes, mapId }) {
   const [draggingNode, setDraggingNode] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [editor, setEditor] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
 
+  const selectedNode = nodes.find((n) => n.id === selectedId) || null;
   const collapsedIds = new Set(nodes.filter((n) => n.collapsed).map((n) => n.id));
   const visibleNodes = getVisibleNodes(nodes, collapsedIds);
 
@@ -126,18 +112,43 @@ export default function MindMapCanvas({ nodes, mapId }) {
 
   const createNode = useMutation({
     mutationFn: (data) => base44.entities.MindMapNode.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] }),
+    onSuccess: (newNode) => {
+      queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
+      setSelectedId(newNode.id);
+    },
   });
 
-  const deleteNodeMut = useMutation({
-    mutationFn: (id) => base44.entities.MindMapNode.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] }),
-  });
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!selectedNode) return;
+      // Don't fire if user is typing in an input
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        handleAddChild(selectedNode);
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (!selectedNode.parent_id) return; // don't delete root
+        e.preventDefault();
+        handleDelete(selectedNode);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedNode, nodes]);
 
   const handleCanvasMouseDown = (e) => {
-    if (e.target === canvasRef.current || e.target.tagName === "svg" || e.target.tagName === "path") {
+    if (
+      e.target === canvasRef.current ||
+      e.target.tagName === "svg" ||
+      e.target.tagName === "path"
+    ) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      setSelectedId(null);
     }
   };
 
@@ -187,7 +198,6 @@ export default function MindMapCanvas({ nodes, mapId }) {
   }, []);
 
   const handleDragStart = (e, node) => {
-    e.stopPropagation();
     const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left - pan.x) / zoom;
     const mouseY = (e.clientY - rect.top - pan.y) / zoom;
@@ -202,18 +212,15 @@ export default function MindMapCanvas({ nodes, mapId }) {
   const handleAddChild = (parentNode) => {
     const depth = getNodeDepth(nodes, parentNode.id) + 1;
     const color = DEPTH_COLORS[depth % DEPTH_COLORS.length];
-    setEditor({
-      mode: "add",
-      parentNode,
-      defaultColor: color,
-    });
+    setEditor({ mode: "add", parentNode, defaultColor: color });
   };
 
-  const handleEdit = (node) => {
-    setEditor({ mode: "edit", node });
+  const handleRename = (node, newLabel) => {
+    updateNode.mutate({ id: node.id, data: { label: newLabel } });
   };
 
   const handleDelete = async (node) => {
+    if (!node.parent_id) return;
     const toDelete = [node.id];
     function findChildren(parentId) {
       nodes.forEach((n) => {
@@ -227,6 +234,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
     for (const id of toDelete) {
       await base44.entities.MindMapNode.delete(id);
     }
+    setSelectedId(null);
     queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
   };
 
@@ -286,8 +294,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
       className="relative w-full h-full overflow-hidden bg-slate-50 cursor-grab active:cursor-grabbing"
       onMouseDown={handleCanvasMouseDown}
       style={{
-        backgroundImage:
-          "radial-gradient(circle, #e2e8f0 1px, transparent 1px)",
+        backgroundImage: "radial-gradient(circle, #e2e8f0 1px, transparent 1px)",
         backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
         backgroundPosition: `${pan.x}px ${pan.y}px`,
       }}
@@ -309,12 +316,12 @@ export default function MindMapCanvas({ nodes, mapId }) {
             key={node.id}
             node={node}
             childCount={getChildCount(nodes, node.id)}
-            onToggleCollapse={handleToggleCollapse}
-            onAddChild={handleAddChild}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onDragStart={handleDragStart}
             isRoot={!node.parent_id}
+            isSelected={node.id === selectedId}
+            onSelect={(n) => setSelectedId(n.id)}
+            onToggleCollapse={handleToggleCollapse}
+            onDragStart={handleDragStart}
+            onRename={handleRename}
           />
         ))}
       </div>
