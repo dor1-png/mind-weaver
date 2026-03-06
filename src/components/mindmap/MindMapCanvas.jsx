@@ -158,17 +158,64 @@ export default function MindMapCanvas({ nodes, mapId }) {
     },
   });
 
+  // ─── Undo ─────────────────────────────────────────────────────────────────
+  const handleUndo = useCallback(async () => {
+    if (historyRef.current.length === 0) return;
+    const snapshot = historyRef.current[historyRef.current.length - 1];
+    historyRef.current = historyRef.current.slice(0, -1);
+
+    const current = queryClient.getQueryData(["mindmap-nodes", mapId]) || [];
+
+    // Figure out what changed between snapshot and current
+    const snapshotIds = new Set(snapshot.map((n) => n.id));
+    const currentIds = new Set(current.map((n) => n.id));
+
+    // Nodes to delete (exist in current but not in snapshot)
+    const toDelete = current.filter((n) => !snapshotIds.has(n.id) && !n.id.startsWith("temp-"));
+    // Nodes to create (exist in snapshot but not in current)
+    const toCreate = snapshot.filter((n) => !currentIds.has(n.id));
+    // Nodes to update (exist in both but data differs)
+    const toUpdate = snapshot.filter((n) => {
+      const c = current.find((x) => x.id === n.id);
+      return c && (c.x !== n.x || c.y !== n.y || c.label !== n.label || c.color !== n.color);
+    });
+
+    // Apply optimistically
+    queryClient.setQueryData(["mindmap-nodes", mapId], snapshot);
+    setSelectedId(null);
+
+    // Sync to DB
+    await Promise.all([
+      ...toDelete.map((n) => base44.entities.MindMapNode.delete(n.id)),
+      ...toCreate.map((n) => base44.entities.MindMapNode.create(n)),
+      ...toUpdate.map((n) => base44.entities.MindMapNode.update(n.id, n)),
+    ]);
+
+    toast.success("Undone");
+  }, [mapId, queryClient]);
+
   // ─── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!selectedNode) return;
+      // Undo — always active, even in inputs
+      const isMeta = e.metaKey || e.ctrlKey;
+      if (isMeta && e.key === "z") { e.preventDefault(); handleUndo(); return; }
+
+      // Below shortcuts: skip when typing in an input
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (!selectedNode) return;
+
       if (e.key === "Tab") { e.preventDefault(); handleAddChild(selectedNode); }
-      if (e.key === "Delete") { if (!selectedNode.parent_id) return; e.preventDefault(); handleDelete(selectedNode); }
+      // Backspace deletes selected node (not root)
+      if (e.key === "Backspace") {
+        if (!selectedNode.parent_id) return;
+        e.preventDefault();
+        handleDelete(selectedNode);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedNode, nodes]);
+  }, [selectedNode, nodes, handleUndo]);
 
   // ─── Mouse events ─────────────────────────────────────────────────────────
   const handleCanvasMouseDown = (e) => {
