@@ -166,13 +166,12 @@ export default function MindMapCanvas({ nodes, mapId }) {
 
     const current = queryClient.getQueryData(["mindmap-nodes", mapId]) || [];
 
-    // Figure out what changed between snapshot and current
     const snapshotIds = new Set(snapshot.map((n) => n.id));
-    const currentIds = new Set(current.map((n) => n.id));
+    const currentIds = new Set(current.filter((n) => !n.id.startsWith("temp-")).map((n) => n.id));
 
-    // Nodes to delete (exist in current but not in snapshot)
-    const toDelete = current.filter((n) => !snapshotIds.has(n.id) && !n.id.startsWith("temp-"));
-    // Nodes to create (exist in snapshot but not in current)
+    // Nodes to delete (exist in current but not in snapshot, skip temp nodes)
+    const toDelete = current.filter((n) => !n.id.startsWith("temp-") && !snapshotIds.has(n.id));
+    // Nodes to re-create (exist in snapshot but were deleted from current)
     const toCreate = snapshot.filter((n) => !currentIds.has(n.id));
     // Nodes to update (exist in both but data differs)
     const toUpdate = snapshot.filter((n) => {
@@ -184,12 +183,17 @@ export default function MindMapCanvas({ nodes, mapId }) {
     queryClient.setQueryData(["mindmap-nodes", mapId], snapshot);
     setSelectedId(null);
 
-    // Sync to DB
-    await Promise.all([
+    // Sync to DB — use allSettled so a stale "not found" error doesn't break the whole undo
+    await Promise.allSettled([
       ...toDelete.map((n) => base44.entities.MindMapNode.delete(n.id)),
-      ...toCreate.map((n) => base44.entities.MindMapNode.create(n)),
-      ...toUpdate.map((n) => base44.entities.MindMapNode.update(n.id, n)),
+      ...toCreate.map(({ id: _id, ...rest }) => base44.entities.MindMapNode.create(rest)),
+      ...toUpdate.map((n) => base44.entities.MindMapNode.update(n.id, { x: n.x, y: n.y, label: n.label, color: n.color, collapsed: n.collapsed })),
     ]);
+
+    // Refresh to get real IDs for any re-created nodes
+    if (toCreate.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
+    }
 
     toast.success("Undone");
   }, [mapId, queryClient]);
