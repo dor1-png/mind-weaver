@@ -138,7 +138,7 @@ export default function MindMapList({ onSelectMap, user }) {
               <div key={i} className="h-16 rounded-2xl bg-slate-100 animate-pulse" />
             ))}
           </div>
-        ) : maps.length === 0 ? (
+        ) : maps.length === 0 && sharedMapsList.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
