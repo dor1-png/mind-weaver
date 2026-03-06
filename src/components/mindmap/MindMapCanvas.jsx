@@ -87,6 +87,13 @@ export default function MindMapCanvas({ nodes, mapId }) {
   // Live positions during drag (id -> {x,y}) — updated imperatively
   const livePositions = useRef({});
 
+  // Map of nodeId -> DOM element for imperative drag moves
+  const nodeElRefs = useRef({});
+  const registerNodeEl = useCallback((id, el) => {
+    if (el) nodeElRefs.current[id] = el;
+    else delete nodeElRefs.current[id];
+  }, []);
+
   const [selectedId, setSelectedId] = useState(null);
   const [autoEditId, setAutoEditId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
