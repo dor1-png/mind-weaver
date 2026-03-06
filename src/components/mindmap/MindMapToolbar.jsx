@@ -1,8 +1,9 @@
 import React from "react";
 import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ExportMenu from "./ExportMenu";
 
-export default function MindMapToolbar({ onZoomIn, onZoomOut, onFitView, onAutoLayout }) {
+export default function MindMapToolbar({ onZoomIn, onZoomOut, onFitView, onAutoLayout, contentRef, nodes, mapTitle }) {
   const buttons = [
     { icon: ZoomIn, label: "Zoom in", onClick: onZoomIn },
     { icon: ZoomOut, label: "Zoom out", onClick: onZoomOut },
@@ -26,6 +27,8 @@ export default function MindMapToolbar({ onZoomIn, onZoomOut, onFitView, onAutoL
             <btn.icon className="w-4.5 h-4.5" />
           </button>
         ))}
+        <div className="w-px h-6 bg-slate-200 mx-1" />
+        <ExportMenu contentRef={contentRef} nodes={nodes} mapTitle={mapTitle} />
       </div>
     </div>
   );
