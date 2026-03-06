@@ -374,15 +374,21 @@ export default function MindMapCanvas({ nodes, mapId }) {
       nodes.forEach((n) => { if (n.parent_id === pid) { toDelete.push(n.id); findChildren(n.id); } });
     }
     findChildren(node.id);
+    // Save snapshot before deleting so Ctrl+Z can restore
+    pushHistory(nodes);
     // Optimistic remove
     queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
       old ? old.filter((n) => !toDelete.includes(n.id)) : old
     );
     setSelectedId(null);
     setAutoEditId(null);
+    const hadChildren = toDelete.length > 1;
     for (const id of toDelete) await base44.entities.MindMapNode.delete(id);
     queryClient.invalidateQueries({ queryKey: ["mindmap-nodes", mapId] });
-  }, [nodes, mapId, queryClient]);
+    toast(`"${node.label}" deleted${hadChildren ? ` (+${toDelete.length - 1} children)` : ""}`, {
+      action: { label: "Undo", onClick: handleUndo },
+    });
+  }, [nodes, mapId, queryClient, pushHistory, handleUndo]);
 
   const handleContextMenu = useCallback((e, node) => {
     setContextMenu({ x: e.clientX, y: e.clientY, node });
