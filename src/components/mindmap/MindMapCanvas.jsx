@@ -141,7 +141,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
     onMutate: ({ id, data, skipHistory }) => {
       const current = queryClient.getQueryData(["mindmap-nodes", mapId]) || [];
       if (!skipHistory) pushHistory(current);
-      queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+      queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
         old ? old.map((n) => n.id === id ? { ...n, ...data } : n) : old
       );
     },
