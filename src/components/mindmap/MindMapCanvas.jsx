@@ -187,7 +187,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
         const y = (e.clientY - rect.top - panRef.current.y) / zoomRef.current - dragOffsetRef.current.y;
 
         // Move DOM node directly — no React state change
-        const el = canvasRef.current.querySelector(`[data-nodeid="${dn.id}"]`);
+        const el = nodeElRefs.current[dn.id];
         if (el) {
           el.style.left = `${x}px`;
           el.style.top = `${y}px`;
