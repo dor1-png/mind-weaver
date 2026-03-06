@@ -132,7 +132,12 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
 
   // ─── Mutations ────────────────────────────────────────────────────────────
   const updateNode = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.MindMapNode.update(id, data),
+    mutationFn: ({ id, data }) => {
+      // Guard: only update nodes owned by this user
+      const node = (queryClient.getQueryData(["mindmap-nodes", mapId]) || []).find((n) => n.id === id);
+      if (node && node.created_by && node.created_by !== user?.email) return Promise.resolve();
+      return base44.entities.MindMapNode.update(id, data);
+    },
     onMutate: ({ id, data, skipHistory }) => {
       const current = queryClient.getQueryData(["mindmap-nodes", mapId]) || [];
       if (!skipHistory) pushHistory(current);
