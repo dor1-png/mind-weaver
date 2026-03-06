@@ -169,7 +169,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
     const snapshot = historyRef.current[historyRef.current.length - 1];
     historyRef.current = historyRef.current.slice(0, -1);
 
-    const current = queryClient.getQueryData(["mindmap-nodes", mapId, user?.email]) || [];
+    const current = queryClient.getQueryData(["mindmap-nodes", mapId, user?.id]) || [];
 
     const snapshotIds = new Set(snapshot.map((n) => n.id));
     const currentIds = new Set(current.filter((n) => !n.id.startsWith("temp-")).map((n) => n.id));
