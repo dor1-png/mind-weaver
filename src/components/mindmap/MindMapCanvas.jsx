@@ -157,7 +157,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
       setAutoEditId(newNode.id);
     },
     onError: (_err, { tempId }) => {
-      queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
+      queryClient.setQueryData(["mindmap-nodes", mapId, user?.id], (old) =>
         old ? old.filter((n) => n.id !== tempId) : old
       );
     },
