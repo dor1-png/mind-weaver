@@ -185,7 +185,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
     });
 
     // Apply optimistically
-    queryClient.setQueryData(["mindmap-nodes", mapId], snapshot);
+    queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], snapshot);
     setSelectedId(null);
 
     // Sync to DB — use allSettled so a stale "not found" error doesn't break the whole undo
