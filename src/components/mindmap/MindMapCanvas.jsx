@@ -134,14 +134,14 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
   const updateNode = useMutation({
     mutationFn: ({ id, data }) => {
       // Guard: only update nodes owned by this user
-      const node = (queryClient.getQueryData(["mindmap-nodes", mapId, user?.email]) || []).find((n) => n.id === id);
-      if (node && node.created_by && node.created_by !== user?.email) return Promise.resolve();
+      const node = (queryClient.getQueryData(["mindmap-nodes", mapId, user?.id]) || []).find((n) => n.id === id);
+      if (node && node.userId && node.userId !== user?.id) return Promise.resolve();
       return base44.entities.MindMapNode.update(id, data);
     },
     onMutate: ({ id, data, skipHistory }) => {
-      const current = queryClient.getQueryData(["mindmap-nodes", mapId, user?.email]) || [];
+      const current = queryClient.getQueryData(["mindmap-nodes", mapId, user?.id]) || [];
       if (!skipHistory) pushHistory(current);
-      queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
+      queryClient.setQueryData(["mindmap-nodes", mapId, user?.id], (old) =>
         old ? old.map((n) => n.id === id ? { ...n, ...data } : n) : old
       );
     },
