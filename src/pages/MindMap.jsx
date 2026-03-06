@@ -32,8 +32,8 @@ export default function MindMap() {
   // Fetch nodes for the selected map — filter by map_id at the DB level
   // We trust the map already belongs to the user (enforced in MindMapList)
   const { data: nodes = [] } = useQuery({
-    queryKey: ["mindmap-nodes", selectedMap?.id, user?.email],
-    queryFn: () => base44.entities.MindMapNode.filter({ map_id: selectedMap.id }),
+    queryKey: ["mindmap-nodes", selectedMap?.id, user?.id],
+    queryFn: () => base44.entities.MindMapNode.filter({ map_id: selectedMap.id, userId: user.id }),
     enabled: !!selectedMap && !!user,
   });
 
