@@ -99,6 +99,20 @@ export default function MindMapCanvas({ nodes, mapId }) {
   const [autoEditId, setAutoEditId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
 
+  // ─── History stack for Undo ───────────────────────────────────────────────
+  const historyRef = useRef([]); // array of node snapshots
+  const MAX_HISTORY = 50;
+
+  const pushHistory = useCallback((currentNodes) => {
+    // Deep-clone only the data we need (positions + labels + structure)
+    const snapshot = currentNodes
+      .filter((n) => !n.id.startsWith("temp-"))
+      .map(({ id, label, x, y, parent_id, color, collapsed, map_id }) =>
+        ({ id, label, x, y, parent_id, color, collapsed, map_id })
+      );
+    historyRef.current = [...historyRef.current.slice(-MAX_HISTORY + 1), snapshot];
+  }, []);
+
   // Build derived data with useMemo to avoid recalculating every render
   const collapsedIds = useMemo(
     () => new Set(nodes.filter((n) => n.collapsed).map((n) => n.id)),
