@@ -288,10 +288,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
       if (dragPendingRAF.current) { cancelAnimationFrame(dragPendingRAF.current); dragPendingRAF.current = null; }
       const pos = livePositions.current[dn.id];
       if (pos) {
-        // Optimistic local update before server call
-        queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
-          old ? old.map((n) => n.id === dn.id ? { ...n, ...pos } : n) : old
-        );
+        // updateNode.onMutate will push history before applying
         updateNode.mutate({ id: dn.id, data: pos });
         delete livePositions.current[dn.id];
       }
