@@ -489,6 +489,9 @@ export default function MindMapCanvas({ nodes, mapId, user, mapTitle }) {
         onZoomOut={() => { const z = Math.max(0.2, zoomRef.current - 0.15); zoomRef.current = z; applyTransform(panRef.current.x, panRef.current.y, z); setZoom(z); }}
         onFitView={handleFitView}
         onAutoLayout={handleAutoLayout}
+        contentRef={contentRef}
+        nodes={nodes}
+        mapTitle={mapTitle}
       />
 
       {contextMenu && (
