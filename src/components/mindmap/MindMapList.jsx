@@ -24,6 +24,7 @@ export default function MindMapList({ onSelectMap, user }) {
     mutationFn: async (title) => {
       console.log('Saving map with User ID:', user.id);
       const map = await base44.entities.MindMap.create({ title, userId: user.id });
+      console.log('Saving root node with User ID:', user.id);
       await base44.entities.MindMapNode.create({
         map_id: map.id,
         label: title,
