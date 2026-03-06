@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Download, Image, FileText, FileJson } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
+import { toPng, toJpeg } from "html-to-image";
 
 function buildOPML(nodes) {
   const nodeMap = {};
@@ -83,14 +83,17 @@ export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
     setOpen(false);
     setExporting("jpg");
     try {
-      const canvas = await html2canvas(canvasRef.current, {
-        backgroundColor: "#ffffff",
-        scale: 2,
-        useCORS: true,
-        logging: false,
+      const { toJpeg } = await import("html-to-image");
+      const dataUrl = await toJpeg(canvasRef.current, {
+        backgroundColor: "#f8fafc",
+        pixelRatio: 2,
+        quality: 0.92,
+        cacheBust: true,
       });
-      canvas.toBlob((blob) => { triggerDownload(blob, `${title}.jpg`); setExporting(null); }, "image/jpeg", 0.92);
-    } catch {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      triggerDownload(blob, `${title}.jpg`);
+    } finally {
       setExporting(null);
     }
   };
