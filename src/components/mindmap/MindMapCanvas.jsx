@@ -358,7 +358,7 @@ export default function MindMapCanvas({ nodes, mapId, user }) {
     };
     // Save snapshot before adding (so undo can remove it)
     pushHistory(nodes);
-    queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+    queryClient.setQueryData(["mindmap-nodes", mapId, user?.email], (old) =>
       old ? [...old, { id: tempId, ...newNodeData }] : [{ id: tempId, ...newNodeData }]
     );
     setSelectedId(tempId);
