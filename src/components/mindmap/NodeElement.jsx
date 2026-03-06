@@ -170,7 +170,7 @@ const NodeElement = memo(function NodeElement({
             <input
               ref={inputRef}
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              onChange={handleEditChange}
               onBlur={commitRename}
               onKeyDown={(e) => {
                 if (e.key === "Enter") { e.preventDefault(); commitRename(); }
