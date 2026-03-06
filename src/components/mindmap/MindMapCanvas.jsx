@@ -275,6 +275,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
     const color = DEPTH_COLORS[depth % DEPTH_COLORS.length];
     const siblings = nodes.filter((n) => n.parent_id === parentNode.id);
     const offsetY = (siblings.length - Math.floor(siblings.length / 2)) * 70;
+    const tempId = `temp-${Date.now()}`;
     const newNodeData = {
       map_id: mapId,
       label: "New node",
@@ -283,9 +284,15 @@ export default function MindMapCanvas({ nodes, mapId }) {
       x: parentNode.x + 220,
       y: parentNode.y + offsetY,
     };
-    // Defer heavy work to next frame so UI stays responsive
-    requestAnimationFrame(() => createNode.mutate(newNodeData));
-  }, [nodes, mapId, createNode]);
+    // Instantly render a placeholder node — no waiting for the server
+    queryClient.setQueryData(["mindmap-nodes", mapId], (old) =>
+      old ? [...old, { id: tempId, ...newNodeData }] : [{ id: tempId, ...newNodeData }]
+    );
+    setSelectedId(tempId);
+    setAutoEditId(tempId);
+    // Fire backend in background; onSuccess swaps tempId → real id
+    createNode.mutate({ tempId, ...newNodeData });
+  }, [nodes, mapId, createNode, queryClient]);
 
   const handleSelect = useCallback((n) => {
     setSelectedId(n.id);
