@@ -363,6 +363,7 @@ export default function MindMapCanvas({ nodes, mapId }) {
   }, []);
 
   const handleRename = useCallback((node, newLabel) => {
+    // history is pushed inside updateNode.onMutate
     updateNode.mutate({ id: node.id, data: { label: newLabel } });
     setAutoEditId((prev) => prev === node.id ? null : prev);
   }, [updateNode]);
