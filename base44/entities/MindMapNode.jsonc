@@ -1,0 +1,44 @@
+{
+  "name": "MindMapNode",
+  "type": "object",
+  "properties": {
+    "map_id": {
+      "type": "string",
+      "description": "ID to group nodes into a specific mind map"
+    },
+    "label": {
+      "type": "string",
+      "description": "Text content of the node"
+    },
+    "parent_id": {
+      "type": "string",
+      "description": "ID of the parent node, null for root"
+    },
+    "x": {
+      "type": "number",
+      "description": "X position on the canvas"
+    },
+    "y": {
+      "type": "number",
+      "description": "Y position on the canvas"
+    },
+    "color": {
+      "type": "string",
+      "description": "Color theme of the node"
+    },
+    "collapsed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether children are hidden"
+    },
+    "userId": {
+      "type": "string",
+      "description": "ID of the user who owns this node"
+    }
+  },
+  "required": [
+    "label",
+    "map_id",
+    "userId"
+  ]
+}

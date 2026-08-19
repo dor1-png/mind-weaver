@@ -1,0 +1,27 @@
+{
+  "name": "MindMapCollaborator",
+  "type": "object",
+  "properties": {
+    "map_id": {
+      "type": "string",
+      "description": "ID of the shared mind map"
+    },
+    "owner_id": {
+      "type": "string",
+      "description": "User ID of the map owner"
+    },
+    "collaborator_email": {
+      "type": "string",
+      "description": "Email of the invited collaborator"
+    },
+    "collaborator_id": {
+      "type": "string",
+      "description": "User ID of the collaborator (set when they first open the map)"
+    }
+  },
+  "required": [
+    "map_id",
+    "owner_id",
+    "collaborator_email"
+  ]
+}

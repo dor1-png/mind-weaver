@@ -1,0 +1,36 @@
+{
+  "name": "Presence",
+  "type": "object",
+  "properties": {
+    "map_id": {
+      "type": "string",
+      "description": "ID of the mind map being viewed"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "ID of the active user"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Display name of the user"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Email of the user"
+    },
+    "color": {
+      "type": "string",
+      "description": "Assigned cursor/avatar color for this session"
+    },
+    "last_seen": {
+      "type": "string",
+      "description": "ISO timestamp of last heartbeat"
+    }
+  },
+  "required": [
+    "map_id",
+    "user_id",
+    "user_name",
+    "last_seen"
+  ]
+}

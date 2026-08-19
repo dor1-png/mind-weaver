@@ -1,0 +1,22 @@
+{
+  "name": "MindMap",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Name of the mind map"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description"
+    },
+    "userId": {
+      "type": "string",
+      "description": "ID of the user who owns this mind map"
+    }
+  },
+  "required": [
+    "title",
+    "userId"
+  ]
+}
