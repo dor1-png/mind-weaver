@@ -40,7 +40,7 @@ function triggerDownload(blob, filename) {
 }
 
 
-export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
+export default function ExportMenu({ canvasRef, nodes, mapTitle, mapNotes }) {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(null);
   const menuRef = useRef(null);
@@ -114,9 +114,14 @@ export default function ExportMenu({ canvasRef, nodes, mapTitle }) {
   const exportJSON = (e) => {
     e.preventDefault();
     setOpen(false);
-    const data = nodes.map(({ id, label, parent_id, x, y, color, collapsed, map_id }) =>
-      ({ id, label, parent_id, x, y, color, collapsed, map_id })
+    const nodeData = nodes.map(({ id, label, notes, parent_id, x, y, color, collapsed, map_id }) =>
+      ({ id, label, notes: notes ?? "", parent_id, x, y, color, collapsed, map_id })
     );
+    const data = {
+      title,
+      general_notes: mapNotes ?? "",
+      nodes: nodeData,
+    };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     triggerDownload(blob, `${title}.json`);
   };
