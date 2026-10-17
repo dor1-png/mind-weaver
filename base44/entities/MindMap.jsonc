@@ -10,6 +10,10 @@
       "type": "string",
       "description": "Brief description"
     },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes attached to the mind map"
+    },
     "userId": {
       "type": "string",
       "description": "ID of the user who owns this mind map"

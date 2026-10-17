@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Brain, LogOut, Share2 } from "lucide-react";
+import { ArrowLeft, Brain, LogOut, Share2, StickyNote } from "lucide-react";
 import { Toaster } from "sonner";
 import MindMapList from "../components/mindmap/MindMapList";
 import MindMapCanvas from "../components/mindmap/MindMapCanvas";
 import ShareModal from "../components/mindmap/ShareModal";
 import PresenceAvatars from "../components/mindmap/PresenceAvatars";
+import NotesPanel from "../components/mindmap/NotesPanel";
 
 export default function MindMap() {
   const [selectedMap, setSelectedMap] = useState(null);
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -85,6 +87,20 @@ export default function MindMap() {
         {/* Presence avatars */}
         <PresenceAvatars mapId={selectedMap?.id} user={user} />
 
+        {/* Notes toggle */}
+        <button
+          onClick={() => setShowNotes((s) => !s)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
+            showNotes
+              ? "bg-amber-100 text-amber-700"
+              : "bg-amber-50 hover:bg-amber-100 text-amber-600"
+          }`}
+          title="Notes"
+        >
+          <StickyNote className="w-4 h-4" />
+          Notes
+        </button>
+
         {/* Share button (owner only) */}
         {isOwner && (
           <button
@@ -113,6 +129,10 @@ export default function MindMap() {
 
       {showShare && (
         <ShareModal map={selectedMap} user={user} onClose={() => setShowShare(false)} />
+      )}
+
+      {showNotes && (
+        <NotesPanel map={selectedMap} user={user} onClose={() => setShowNotes(false)} />
       )}
     </div>
   );
