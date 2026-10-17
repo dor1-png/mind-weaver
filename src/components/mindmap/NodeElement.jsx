@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from "react";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
+import NodeNotesPopover from "./NodeNotesPopover";
 
 const colorSchemes = {
   indigo:  "bg-indigo-50 border-indigo-200 text-indigo-900",
@@ -46,8 +47,10 @@ const NodeElement = memo(function NodeElement({
   onRename,
   onContextMenu,
   onMount,
+  onNotesChange,
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
   const [editValue, setEditValue] = useState(node.label);
   const inputRef = useRef(null);
   const wrapperRef = useRef(null);
@@ -140,7 +143,7 @@ const NodeElement = memo(function NodeElement({
     >
       <div
         className={cn(
-          "relative rounded-2xl border-2 px-5 py-3 transition-colors duration-150",
+          "group relative rounded-2xl border-2 px-5 py-3 transition-colors duration-150",
           "hover:shadow-lg",
           colorSchemes[color] || colorSchemes.slate,
           isRoot && "px-7 py-4",
@@ -197,8 +200,33 @@ const NodeElement = memo(function NodeElement({
           {childCount > 0 && node.collapsed && !isEditing && (
             <span className="text-xs opacity-50 ml-1">({childCount})</span>
           )}
+
+          {/* Notes button */}
+          {!isEditing && (
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setShowNotes((s) => !s); }}
+              className={cn(
+                "p-0.5 rounded-md transition-colors flex-shrink-0",
+                node.notes
+                  ? "text-amber-500 opacity-100"
+                  : "text-current opacity-0 hover:opacity-60 group-hover:opacity-40"
+              )}
+              title="Node notes"
+            >
+              <StickyNote className={cn("w-3.5 h-3.5", node.notes && "fill-amber-200/60")} />
+            </button>
+          )}
         </div>
       </div>
+
+      {showNotes && (
+        <NodeNotesPopover
+          node={node}
+          onSave={(text) => onNotesChange?.(node, text)}
+          onClose={() => setShowNotes(false)}
+        />
+      )}
 
       {isSelected && !isEditing && (
         <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">

@@ -426,6 +426,10 @@ export default function MindMapCanvas({ nodes, mapId, user, isOwner = true }) {
     updateNode.mutate({ id: contextMenu.node.id, data: { color } });
   }, [contextMenu, updateNode]);
 
+  const handleNotesChange = useCallback((node, text) => {
+    updateNode.mutate({ id: node.id, data: { notes: text } });
+  }, [updateNode]);
+
   const handleAutoLayout = async () => {
     const laid = autoLayout(nodes);
     for (const n of laid) {
@@ -492,6 +496,7 @@ export default function MindMapCanvas({ nodes, mapId, user, isOwner = true }) {
             onRename={handleRename}
             onContextMenu={handleContextMenu}
             onMount={registerNodeEl}
+            onNotesChange={handleNotesChange}
           />
         ))}
       </div>

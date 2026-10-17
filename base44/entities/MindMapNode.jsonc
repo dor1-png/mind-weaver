@@ -10,6 +10,10 @@
       "type": "string",
       "description": "Text content of the node"
     },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes attached to this node"
+    },
     "parent_id": {
       "type": "string",
       "description": "ID of the parent node, null for root"
